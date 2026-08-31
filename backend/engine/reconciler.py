@@ -170,7 +170,7 @@ def reconcile_batch(session: Session) -> List[ReconciliationCase]:
             )
             continue
 
-        exceptions = classify_exceptions(s, b_entry, batch_payments, batch_refunds, batch_adjs)
+        exceptions = classify_exceptions(s, b_entry, batch_payments, batch_refunds, batch_adjs, session)
         for ex in exceptions:
             ctx = {
                 "settlement_id": s.settlement_id,

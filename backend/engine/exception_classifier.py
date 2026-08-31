@@ -16,7 +16,8 @@ def classify_exceptions(
     bank_entry: Optional[BankEntry],
     payments: List[Payment],
     refunds: List[Refund],
-    adjustments: List[Adjustment]
+    adjustments: List[Adjustment],
+    session = None
 ) -> List[ExceptionDetection]:
     """
     Evaluates a settlement batch against the 12 rule codes.
@@ -38,7 +39,7 @@ def classify_exceptions(
 
     # Re-calculate expected fees
     expected_gross = sum(p.amount_paisa for p in payments)
-    expected_fee = sum(calculate_fee_paisa(p.payment_method, p.amount_paisa) for p in payments)
+    expected_fee = sum(calculate_fee_paisa(p.payment_method, p.amount_paisa, p.captured_at, session) for p in payments)
     expected_tax = calculate_tax_paisa(expected_fee)
     
     # 2. FEE_RATE_MISMATCH
@@ -76,7 +77,7 @@ def classify_exceptions(
     for r in refunds:
         original_payment = next((p for p in payments if p.payment_id == r.payment_id), None)
         if original_payment:
-            fee = calculate_fee_paisa(original_payment.payment_method, original_payment.amount_paisa)
+            fee = calculate_fee_paisa(original_payment.payment_method, original_payment.amount_paisa, original_payment.captured_at, session)
             if fee > 0:
                 exceptions.append(ExceptionDetection("REFUND_MDR_UNRECOVERABLE", "INFO", fee, 0))
                 

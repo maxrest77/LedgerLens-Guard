@@ -119,3 +119,19 @@ class Reviewer(SQLModel, table=True):
 class ProcessedWebhook(SQLModel, table=True):
     event_id: str = Field(primary_key=True)
     processed_at: datetime = Field(default_factory=datetime.utcnow)
+
+class FeeRule(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    method: PaymentMethod
+    effective_from: datetime
+    effective_to: Optional[datetime] = None
+    pct_basis_points: int
+    flat_cap_paisa: Optional[int] = None
+    threshold_paisa: Optional[int] = None
+    pct_below_threshold: Optional[int] = None
+
+class RefreshToken(SQLModel, table=True):
+    token: str = Field(primary_key=True)
+    reviewer_email: str = Field(foreign_key="reviewer.email")
+    expires_at: datetime
+    revoked: bool = False
