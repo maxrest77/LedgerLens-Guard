@@ -41,7 +41,8 @@ def seed_db():
         ))
         session.add(Reviewer(
             email=reviewer2_email,
-            hashed_password=pwd_context.hash(reviewer2_pass)
+            hashed_password=pwd_context.hash(reviewer2_pass),
+            role="ADMIN"
         ))
         
         session.commit()

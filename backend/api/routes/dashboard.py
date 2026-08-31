@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
-from backend.api.auth import get_current_reviewer, get_db
+from backend.api.auth import get_current_reviewer, get_db, RequireRole
 from backend.data.schema import ReconciliationCase, CaseStatus, PaymentMethod, Payment
 from backend.audit.chain import AuditBlock
 import json
@@ -13,7 +13,7 @@ _BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 _METRICS_PATH = os.path.join(_BACKEND_DIR, "data", "last_batch_metrics.json")
 
 @router.get("/dashboard")
-async def get_dashboard_metrics(session: Session = Depends(get_db), current_reviewer = Depends(get_current_reviewer)):
+async def get_dashboard_metrics(session: Session = Depends(get_db), current_reviewer = Depends(RequireRole(["REVIEWER", "SENIOR_APPROVER", "AUDITOR", "ADMIN"]))):
     cases = session.exec(select(ReconciliationCase)).all()
     
     from collections import Counter

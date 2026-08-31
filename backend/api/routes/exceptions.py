@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
-from backend.api.auth import get_current_reviewer, get_db
+from backend.api.auth import get_current_reviewer, get_db, RequireRole
 from backend.data.schema import ReconciliationCase, Payment, Settlement, BankEntry, Adjustment, Refund, SettlementPaymentLink
 
 router = APIRouter()
 
 @router.get("/exceptions/{case_id}")
-async def get_exception_detail(case_id: str, session: Session = Depends(get_db), current_reviewer = Depends(get_current_reviewer)):
+async def get_exception_detail(case_id: str, session: Session = Depends(get_db), current_reviewer = Depends(RequireRole(["REVIEWER", "SENIOR_APPROVER", "AUDITOR", "ADMIN"]))):
     case = session.exec(select(ReconciliationCase).where(ReconciliationCase.case_id == case_id)).first()
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")

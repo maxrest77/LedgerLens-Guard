@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlmodel import Session, select
-from backend.api.auth import get_current_reviewer, get_db
+from backend.api.auth import get_current_reviewer, get_db, RequireRole
 from backend.data.schema import ReconciliationCase
 from backend.export.csv_exporter import generate_cases_csv
 from backend.export.pdf_generator import generate_evidence_pack_pdf
@@ -9,7 +9,7 @@ from backend.export.pdf_generator import generate_evidence_pack_pdf
 router = APIRouter()
 
 @router.get("/batch/csv")
-async def export_batch_csv(session: Session = Depends(get_db), current_reviewer = Depends(get_current_reviewer)):
+async def export_batch_csv(session: Session = Depends(get_db), current_reviewer = Depends(RequireRole(["REVIEWER", "SENIOR_APPROVER", "AUDITOR", "ADMIN"]))):
     cases = session.exec(select(ReconciliationCase).order_by(ReconciliationCase.opened_at.asc())).all()
     
     csv_buffer = generate_cases_csv(cases)
@@ -21,7 +21,7 @@ async def export_batch_csv(session: Session = Depends(get_db), current_reviewer 
     )
 
 @router.get("/exception/{case_id}/pdf")
-async def export_exception_pdf(case_id: str, session: Session = Depends(get_db), current_reviewer = Depends(get_current_reviewer)):
+async def export_exception_pdf(case_id: str, session: Session = Depends(get_db), current_reviewer = Depends(RequireRole(["REVIEWER", "SENIOR_APPROVER", "AUDITOR", "ADMIN"]))):
     case = session.exec(select(ReconciliationCase).where(ReconciliationCase.case_id == case_id)).first()
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")

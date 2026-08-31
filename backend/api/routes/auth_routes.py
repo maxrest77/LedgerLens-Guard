@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select
-from backend.api.auth import get_db, verify_password, create_access_token, get_current_reviewer
+from backend.api.auth import get_db, verify_password, create_access_token, get_current_reviewer, RequireRole
 from backend.data.schema import Reviewer
 from pydantic import BaseModel
 

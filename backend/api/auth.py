@@ -54,3 +54,13 @@ async def get_current_reviewer(token: str = Depends(oauth2_scheme), session: Ses
     if reviewer is None:
         raise credentials_exception
     return reviewer
+
+def RequireRole(allowed_roles: list[str]):
+    def role_checker(reviewer: Reviewer = Depends(get_current_reviewer)):
+        if reviewer.role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Role {reviewer.role} not permitted for this action"
+            )
+        return reviewer
+    return role_checker

@@ -1,7 +1,7 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session, select
-from backend.api.auth import get_current_reviewer, get_db
+from backend.api.auth import get_current_reviewer, get_db, RequireRole
 from backend.data.schema import ReconciliationCase
 
 router = APIRouter()
@@ -14,7 +14,7 @@ async def get_workspace(
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=100),
     session: Session = Depends(get_db),
-    current_reviewer = Depends(get_current_reviewer)
+    current_reviewer = Depends(RequireRole(["REVIEWER", "SENIOR_APPROVER", "AUDITOR", "ADMIN"]))
 ):
     query = select(ReconciliationCase)
     

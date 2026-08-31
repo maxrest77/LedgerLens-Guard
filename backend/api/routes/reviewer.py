@@ -2,7 +2,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from pydantic import BaseModel
-from backend.api.auth import get_current_reviewer, get_db
+from backend.api.auth import get_current_reviewer, get_db, RequireRole
 from backend.data.schema import ReconciliationCase, CaseStatus, Reviewer
 from backend.audit.chain import append_to_chain
 
@@ -25,7 +25,7 @@ async def review_case(
     case_id: str,
     action_data: ReviewAction,
     session: Session = Depends(get_db),
-    current_reviewer: Reviewer = Depends(get_current_reviewer),
+    current_reviewer = Depends(RequireRole(["REVIEWER", "SENIOR_APPROVER", "ADMIN"])),
 ):
     case = session.exec(
         select(ReconciliationCase).where(ReconciliationCase.case_id == case_id)

@@ -105,6 +105,13 @@ class ReconciliationCase(SQLModel, table=True):
     resolved_by: Optional[str] = None
     audit_block_id: Optional[int] = None
 
+class Role(str, Enum):
+    REVIEWER = "REVIEWER"
+    SENIOR_APPROVER = "SENIOR_APPROVER"
+    AUDITOR = "AUDITOR"
+    ADMIN = "ADMIN"
+
 class Reviewer(SQLModel, table=True):
     email: str = Field(primary_key=True)
     hashed_password: str
+    role: Role = Field(default=Role.REVIEWER)
