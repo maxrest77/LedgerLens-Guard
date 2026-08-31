@@ -47,6 +47,7 @@ class Payment(SQLModel, table=True):
     originating_ip: str
     customer_id: str
     bank_code: str
+    psp_provider: str = Field(default="RAZORPAY")
 
 class Refund(SQLModel, table=True):
     refund_id: str = Field(primary_key=True)
@@ -64,6 +65,7 @@ class Settlement(SQLModel, table=True):
     net_paisa: int
     settled_at: datetime
     on_hold: bool = False
+    psp_provider: str = Field(default="RAZORPAY")
 
 class SettlementPaymentLink(SQLModel, table=True):
     settlement_id: str = Field(foreign_key="settlement.settlement_id", primary_key=True)
