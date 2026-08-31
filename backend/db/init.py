@@ -7,7 +7,16 @@ from backend.audit.chain import AuditBlock
 _BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _DB_PATH = os.path.join(_BACKEND_DIR, "ledgerlens.db")
 DB_FILE = os.getenv("DATABASE_URL", f"sqlite:///{_DB_PATH}")
-engine = create_engine(DB_FILE, echo=False)
+# If postgres, ensure we use psycopg2
+if DB_FILE.startswith("postgres://"):
+    DB_FILE = DB_FILE.replace("postgres://", "postgresql+psycopg2://", 1)
+elif DB_FILE.startswith("postgresql://"):
+    DB_FILE = DB_FILE.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+if DB_FILE.startswith("sqlite"):
+    engine = create_engine(DB_FILE, echo=False, connect_args={"check_same_thread": False})
+else:
+    engine = create_engine(DB_FILE, echo=False)
 
 def init_db():
     """Create the SQLite database and all tables."""
