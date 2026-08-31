@@ -25,10 +25,12 @@ async def razorpay_webhook(
     if not event_id or not created_at:
         raise HTTPException(status_code=400, detail="Missing required webhook payload fields")
         
-    # Check freshness (5 minute tolerance)
+    # Check freshness (5 minute tolerance, reject both stale and future-dated)
     current_time = time.time()
     if current_time - created_at > 300:
         raise HTTPException(status_code=400, detail="Webhook is older than 5 minute tolerance window")
+    if created_at - current_time > 60:
+        raise HTTPException(status_code=400, detail="Webhook timestamp is in the future")
         
     # Check idempotency
     existing = session.exec(select(ProcessedWebhook).where(ProcessedWebhook.event_id == event_id)).first()

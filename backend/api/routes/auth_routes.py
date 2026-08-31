@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select
@@ -13,6 +14,7 @@ class Token(BaseModel):
 
 class ReviewerProfile(BaseModel):
     email: str
+    role: str
 
 from fastapi import Response
 
@@ -31,12 +33,14 @@ async def login_for_access_token(
         )
     access_token = create_access_token(data={"sub": reviewer.email})
     
+    is_production = os.getenv("ENV", "development") != "development"
+    
     response.set_cookie(
         key="session_token",
         value=access_token,
         httponly=True,
-        secure=True,
-        samesite="strict",
+        secure=is_production,
+        samesite="strict" if is_production else "lax",
         max_age=8 * 3600
     )
     
@@ -44,4 +48,4 @@ async def login_for_access_token(
 
 @router.get("/me", response_model=ReviewerProfile)
 async def read_users_me(current_reviewer: Reviewer = Depends(get_current_reviewer)):
-    return ReviewerProfile(email=current_reviewer.email)
+    return ReviewerProfile(email=current_reviewer.email, role=current_reviewer.role)

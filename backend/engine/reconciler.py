@@ -1,4 +1,3 @@
-import uuid
 import hashlib
 from datetime import datetime
 from collections import defaultdict

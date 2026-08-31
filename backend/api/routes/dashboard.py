@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
 from backend.api.auth import get_current_reviewer, get_db, RequireRole
-from backend.data.schema import ReconciliationCase, CaseStatus, PaymentMethod, Payment
+from backend.data.schema import ReconciliationCase, CaseStatus, Payment
 from backend.audit.chain import AuditBlock
 import json
 import os

@@ -3,6 +3,7 @@ import api from '../lib/api'
 
 export interface ReviewerProfile {
   email: string
+  role: string
 }
 
 interface AuthState {
