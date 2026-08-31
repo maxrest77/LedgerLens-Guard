@@ -115,3 +115,7 @@ class Reviewer(SQLModel, table=True):
     email: str = Field(primary_key=True)
     hashed_password: str
     role: Role = Field(default=Role.REVIEWER)
+
+class ProcessedWebhook(SQLModel, table=True):
+    event_id: str = Field(primary_key=True)
+    processed_at: datetime = Field(default_factory=datetime.utcnow)
