@@ -23,3 +23,8 @@
 | E1 | Fixed | Unaudited custom hash-chain serialization | Overhauled append_to_chain JSON generation to utilize deterministic formatting (sort_keys=True, tight separators) stopping hash drift. |
 | D1 | Fixed | Unclear resolution path for CRITICAL | Engineered a Maker-Checker multi-sig workflow for Feature 7. Critical approvals mandate two cryptographically verified distinct signatures (Reviewer + Senior Approver). |
 | E2 | Fixed | Chain and data share one mutable store | Created Feature 2. Built an external WORM anchoring daemon (jobs/anchoring.py) linking DB hashes to an immutable external ledger, preventing invisible rewrites. |
+| F5 | Fixed | PSP-agnostic federated reconciliation | Updated schema and webhook handlers to support multiple PSPs (Stripe, PayU) and normalized them through the unified reconciliation engine. applied G1 idempotency identically to all. |
+| F1 | Fixed | Counterfactual near-miss explanations | Augmented the explanation engine to compute and append non-mutating read-only counterfactual near-miss statements for exceptions. |
+| F6 | Fixed | Reviewer behavior & insider-risk monitor | Created read-only analytics over the audit chain to identify statistically suspicious rapid rubber-stamping behaviors for compliance review. |
+| F4 | Fixed | Settlement nowcasting | Added probabilistic settlement latency forecast modeling alongside deterministic missing-settlement checks, computed off historical delay patterns. |
+| F3 | Fixed | Verified-narrative layer (Optional) | Constructed a CFO-friendly narrative layer generator backed by a strict hard validator that instantly rejects any generated fact (ID/number) not present in the deterministic context. |
