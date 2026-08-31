@@ -127,7 +127,16 @@ def generate_explanation(exception_code: str, context: dict) -> str:
         if isinstance(val, int):
             formatted[key] = _format_paisa(val)
 
-    return template.format_map(_SafeDict(formatted))
+    explanation = template.format_map(_SafeDict(formatted))
+    
+    # Feature 1: Counterfactual "near-miss" explanations
+    delta = context.get("delta")
+    if delta and isinstance(delta, int) and delta != 0:
+        abs_delta = _format_paisa(abs(delta))
+        direction = "higher" if delta > 0 else "lower"
+        explanation += f" [Counterfactual: If the bank credit were {abs_delta} {direction}, this would be a clean match.]"
+
+    return explanation
 
 
 def get_suggested_action(exception_code: str) -> str:
