@@ -28,6 +28,7 @@ class AdjustmentType(str, Enum):
 
 class CaseStatus(str, Enum):
     OPEN = "OPEN"
+    PENDING_CO_REVIEW = "PENDING_CO_REVIEW"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
     ESCALATED = "ESCALATED"
@@ -103,6 +104,7 @@ class ReconciliationCase(SQLModel, table=True):
     opened_at: datetime
     resolved_at: Optional[datetime] = None
     resolved_by: Optional[str] = None
+    co_reviewer_email: Optional[str] = None
     audit_block_id: Optional[int] = None
 
 class Role(str, Enum):

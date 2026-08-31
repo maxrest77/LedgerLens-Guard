@@ -33,7 +33,7 @@ async def review_case(
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
 
-    if case.status != CaseStatus.OPEN:
+    if case.status not in (CaseStatus.OPEN, CaseStatus.PENDING_CO_REVIEW):
         raise HTTPException(status_code=409, detail="Case is already resolved")
 
     new_status = _ACTION_TO_STATUS.get(action_data.action)
@@ -49,11 +49,22 @@ async def review_case(
             detail="Industrial standards require a meaningful review reason of at least 20 characters and 3 words for the audit trail.",
         )
 
-    if action_data.action == "APPROVE" and case.severity == "CRITICAL":
-        raise HTTPException(
-            status_code=403,
-            detail="Cannot directly approve CRITICAL severity cases. Escalation required.",
-        )
+    # Multi-sig logic for CRITICAL cases
+    if case.severity == "CRITICAL" and action_data.action in ["APPROVE", "REJECT"]:
+        if case.status == CaseStatus.OPEN:
+            new_status = CaseStatus.PENDING_CO_REVIEW
+        elif case.status == CaseStatus.PENDING_CO_REVIEW:
+            if current_reviewer.email == case.resolved_by:
+                raise HTTPException(
+                    status_code=403, 
+                    detail="Co-reviewer must be a distinct identity from the first reviewer."
+                )
+            if current_reviewer.role not in ["SENIOR_APPROVER", "ADMIN"]:
+                raise HTTPException(
+                    status_code=403, 
+                    detail="Second signature must be from a Senior Approver or Admin."
+                )
+            case.co_reviewer_email = current_reviewer.email
 
     import html
     action_data.reason = html.escape(action_data.reason)
@@ -73,8 +84,9 @@ async def review_case(
 
     # Update the case
     case.status = new_status
+    if not case.resolved_by:
+        case.resolved_by = current_reviewer.email
     case.resolved_at = datetime.utcnow()
-    case.resolved_by = current_reviewer.email
     case.audit_block_id = block.index
 
     session.add(case)
