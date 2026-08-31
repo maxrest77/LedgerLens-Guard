@@ -1,4 +1,5 @@
 import uuid
+import hashlib
 from datetime import datetime
 from collections import defaultdict
 from typing import List
@@ -12,25 +13,48 @@ from backend.engine.match_scorer import calculate_match_confidence
 from backend.engine.explanation_engine import generate_explanation, get_suggested_action
 from backend.audit.chain import append_to_chain
 
+def _generate_case_id(code: str, settlement_id: str | None, payment_id: str | None, utr: str | None, expected: int, actual: int) -> str:
+    if code == "SYSTEMATIC_FEE_DEVIATION":
+        key_str = f"{code}:group:{expected - actual}"
+    else:
+        key_str = f"{code}:{settlement_id}:{payment_id}:{utr}"
+    case_hash = hashlib.sha256(key_str.encode("utf-8")).hexdigest()[:12]
+    return f"case_{case_hash}"
+
+def _build_case(
+    code: str,
+    severity: str,
+    expected: int,
+    actual: int,
+    confidence: float,
+    ctx: dict,
+    settlement_id: str | None = None,
+    payment_id: str | None = None,
+    utr: str | None = None,
+) -> ReconciliationCase:
+    case_id = _generate_case_id(code, settlement_id, payment_id, utr, expected, actual)
+    return ReconciliationCase(
+        case_id=case_id,
+        exception_code=code,
+        severity=severity,
+        settlement_id=settlement_id,
+        payment_id=payment_id,
+        utr=utr,
+        expected_paisa=expected,
+        actual_paisa=actual,
+        delta_paisa=expected - actual,
+        confidence_score=confidence,
+        explanation=generate_explanation(code, ctx),
+        suggested_action=get_suggested_action(code),
+        status=CaseStatus.OPEN,
+        opened_at=datetime.utcnow(),
+    )
 
 def reconcile_batch(session: Session) -> List[ReconciliationCase]:
-    """
-    Main reconciliation loop:
-    1. Loads all records from DB.
-    2. Groups by settlement batch (SettlementPaymentLink + UTR).
-    3. Runs exception classification per batch.
-    4. Detects global-level exceptions (DUPLICATE_UTR, REFUND_WITHOUT_PAYMENT, etc.).
-    5. Persists ReconciliationCase rows.
-
-    Idempotent: clears any existing cases before re-running.
-    """
-    # ── Idempotency: wipe previous run's cases ───────────────────────────
+    # Fetch existing cases instead of wiping
     existing_cases = session.exec(select(ReconciliationCase)).all()
-    for c in existing_cases:
-        session.delete(c)
-    session.commit()
+    existing_case_map = {c.case_id: c for c in existing_cases}
 
-    # ── Load all source records ──────────────────────────────────────────
     payments = session.exec(select(Payment)).all()
     refunds = session.exec(select(Refund)).all()
     settlements = session.exec(select(Settlement)).all()
@@ -101,8 +125,6 @@ def reconcile_batch(session: Session) -> List[ReconciliationCase]:
     for r in refunds:
         refund_map[r.payment_id].append(r)
 
-    # For duplicate UTRs, bank_map keeps *first* entry per UTR.
-    # Duplicate detection is already handled above.
     bank_map: dict[str, BankEntry] = {}
     for b in bank_entries:
         if b.utr not in bank_map:
@@ -127,8 +149,6 @@ def reconcile_batch(session: Session) -> List[ReconciliationCase]:
         batch_adjs = adj_map.get(s.settlement_id, [])
         b_entry = bank_map.get(s.utr)
 
-        # Adjustments are debits (negative impact on what the merchant receives),
-        # so they reduce the expected bank credit.
         adj_total = sum(a.amount_paisa for a in batch_adjs)
         expected_net = s.net_paisa - adj_total
 
@@ -212,20 +232,17 @@ def reconcile_batch(session: Session) -> List[ReconciliationCase]:
             c.resolved_at = datetime.utcnow()
             c.resolved_by = "system_auto_resolve"
 
-    # Pattern detection
-    # Group OPEN cases by (exception_code, delta_paisa)
     groups = defaultdict(list)
     for c in new_cases:
         if c.status == CaseStatus.OPEN and c.delta_paisa != 0:
             groups[(c.exception_code, c.delta_paisa)].append(c)
     
-    final_cases = []
+    generated_cases = []
     for (code, delta), group_cases in groups.items():
         if len(group_cases) >= 3:
-            # Create a systematic case
             total_expected = sum(c.expected_paisa for c in group_cases)
             total_actual = sum(c.actual_paisa for c in group_cases)
-            final_cases.append(
+            generated_cases.append(
                 _build_case(
                     code="SYSTEMATIC_FEE_DEVIATION",
                     severity="HIGH",
@@ -240,63 +257,95 @@ def reconcile_batch(session: Session) -> List[ReconciliationCase]:
                     }
                 )
             )
-            # We don't add the original cases to final_cases
         else:
-            final_cases.extend(group_cases)
+            generated_cases.extend(group_cases)
             
-    # Add back the auto-resolved cases and others that weren't grouped
     for c in new_cases:
         if c.status != CaseStatus.OPEN or c.delta_paisa == 0:
-            final_cases.append(c)
+            generated_cases.append(c)
 
-    # ── Persist ──────────────────────────────────────────────────────────
+    # ── Merge with Existing Cases (A1) ──────────────────────────────────
+    final_cases = []
+    cases_to_audit_recompute = []
+    cases_to_audit_autoresolve = []
+
+    for c_new in generated_cases:
+        existing = existing_case_map.get(c_new.case_id)
+        if existing:
+            facts_changed = (existing.expected_paisa != c_new.expected_paisa or 
+                             existing.actual_paisa != c_new.actual_paisa)
+            
+            if facts_changed:
+                had_human_decision = existing.status in [CaseStatus.APPROVED, CaseStatus.REJECTED, CaseStatus.ESCALATED]
+                old_facts = existing.model_dump(mode="json")
+                
+                existing.expected_paisa = c_new.expected_paisa
+                existing.actual_paisa = c_new.actual_paisa
+                existing.delta_paisa = c_new.delta_paisa
+                existing.explanation = c_new.explanation
+                existing.severity = c_new.severity
+                existing.confidence_score = c_new.confidence_score
+                existing.suggested_action = c_new.suggested_action
+                
+                if had_human_decision:
+                    existing.status = CaseStatus.OPEN
+                    existing.resolved_at = None
+                    existing.resolved_by = None
+                    cases_to_audit_recompute.append((existing, old_facts))
+                else:
+                    existing.status = c_new.status
+                    existing.resolved_at = c_new.resolved_at
+                    existing.resolved_by = c_new.resolved_by
+                    if c_new.status == CaseStatus.AUTO_RESOLVED:
+                        cases_to_audit_autoresolve.append(existing)
+                
+                final_cases.append(existing)
+            else:
+                # Facts didn't change, preserve exactly as is
+                final_cases.append(existing)
+            
+            del existing_case_map[c_new.case_id]
+        else:
+            # Entirely new case
+            final_cases.append(c_new)
+            if c_new.status == CaseStatus.AUTO_RESOLVED:
+                cases_to_audit_autoresolve.append(c_new)
+
+    # Any remaining cases in existing_case_map are no longer applicable
+    for c_to_delete in existing_case_map.values():
+        session.delete(c_to_delete)
+
     session.add_all(final_cases)
     session.commit()
     
-    # Write automated decisions to the audit chain
-    for c in final_cases:
-        session.refresh(c)
-        if c.status == CaseStatus.AUTO_RESOLVED:
-            block = append_to_chain(
-                session=session,
-                case_id=c.case_id,
-                reviewer=c.resolved_by,
-                action="AUTO_RESOLVE",
-                reason=c.explanation,
-                payload_snapshot=c.model_dump(mode="json"),
-            )
-            c.audit_block_id = block.index
-            session.add(c)
+    # Write automated decisions and recomputes to the audit chain
+    for c_existing, old_facts in cases_to_audit_recompute:
+        session.refresh(c_existing)
+        block = append_to_chain(
+            session=session,
+            case_id=c_existing.case_id,
+            reviewer="system_reconciler",
+            action="CASE_RECOMPUTED",
+            reason="Underlying financial facts changed",
+            payload_snapshot={"old": old_facts, "new": c_existing.model_dump(mode="json")}
+        )
+        c_existing.audit_block_id = block.index
+        session.add(c_existing)
+        
+    for c_auto in cases_to_audit_autoresolve:
+        session.refresh(c_auto)
+        block = append_to_chain(
+            session=session,
+            case_id=c_auto.case_id,
+            reviewer=c_auto.resolved_by,
+            action="AUTO_RESOLVE",
+            reason=c_auto.explanation,
+            payload_snapshot=c_auto.model_dump(mode="json"),
+        )
+        c_auto.audit_block_id = block.index
+        session.add(c_auto)
     
-    session.commit()
+    if cases_to_audit_recompute or cases_to_audit_autoresolve:
+        session.commit()
 
     return final_cases
-
-
-def _build_case(
-    code: str,
-    severity: str,
-    expected: int,
-    actual: int,
-    confidence: float,
-    ctx: dict,
-    settlement_id: str | None = None,
-    payment_id: str | None = None,
-    utr: str | None = None,
-) -> ReconciliationCase:
-    return ReconciliationCase(
-        case_id=f"case_{uuid.uuid4().hex[:12]}",
-        exception_code=code,
-        severity=severity,
-        settlement_id=settlement_id,
-        payment_id=payment_id,
-        utr=utr,
-        expected_paisa=expected,
-        actual_paisa=actual,
-        delta_paisa=expected - actual,
-        confidence_score=confidence,
-        explanation=generate_explanation(code, ctx),
-        suggested_action=get_suggested_action(code),
-        status=CaseStatus.OPEN,
-        opened_at=datetime.utcnow(),
-    )
