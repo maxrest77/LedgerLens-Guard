@@ -9,8 +9,30 @@ import api from '../lib/api'
 import { formatPaisa } from '../lib/formatters'
 import { Download, Search, ChevronRight, ChevronLeft } from 'lucide-react'
 
+export interface CaseDetail {
+  case_id: string
+  exception_code: string
+  severity: string
+  settlement_id: string
+  payment_id: string
+  utr: string
+  expected_paisa: number
+  actual_paisa: number
+  delta_paisa: number
+  confidence_score: number
+  explanation: string
+  suggested_action: string
+  status: string
+  opened_at: string
+}
+
+interface CasesData {
+  items: CaseDetail[]
+  total: number
+}
+
 export default function Workspace() {
-  const [data, setData] = useState<any>(null)
+  const [data, setData] = useState<CasesData | null>(null)
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')

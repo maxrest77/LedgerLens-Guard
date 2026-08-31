@@ -6,11 +6,18 @@ import api from '../lib/api'
 import { formatDateTime } from '../lib/formatters'
 import { ShieldCheck, ShieldAlert, Lock } from 'lucide-react'
 
+interface VerificationResult {
+  valid: boolean
+  block_count: number
+  tampered_at_index?: number | null
+  time_taken_ms: number
+}
+
 export default function AuditLog() {
   const [blocks, setBlocks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [verifying, setVerifying] = useState(false)
-  const [verificationResult, setVerificationResult] = useState<any>(null)
+  const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null)
 
   useEffect(() => {
     fetchChain()

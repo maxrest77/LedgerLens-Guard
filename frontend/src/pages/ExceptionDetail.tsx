@@ -9,10 +9,12 @@ import { formatPaisa, formatDateTime } from '../lib/formatters'
 import { ArrowLeft, AlertCircle, FileText, Download, ShieldCheck, X, Maximize2, Search } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { CaseDetail } from './Workspace'
+
 export default function ExceptionDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [data, setData] = useState<any>(null)
+  const [data, setData] = useState<CaseDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)

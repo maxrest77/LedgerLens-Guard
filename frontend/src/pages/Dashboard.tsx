@@ -6,8 +6,15 @@ import { ShieldCheck, AlertTriangle, Activity, Zap } from 'lucide-react'
 import { formatPaisa, formatDateTime } from '../lib/formatters'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
+interface DashboardData {
+  match_rate: number
+  health_rate: number
+  total_settlements: number
+  total_exceptions: number
+}
+
 export default function Dashboard() {
-  const [data, setData] = useState<any>(null)
+  const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
