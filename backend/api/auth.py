@@ -36,12 +36,33 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-async def get_current_reviewer(token: str = Depends(oauth2_scheme), session: Session = Depends(get_db)) -> Reviewer:
+from fastapi import Request
+
+async def get_current_reviewer(request: Request, session: Session = Depends(get_db)) -> Reviewer:
+    # 1. Enforce CSRF protection on state-changing methods
+    if request.method in ["POST", "PUT", "DELETE", "PATCH"]:
+        if request.headers.get("X-CSRF-Protection") != "1":
+            raise HTTPException(
+                status_code=403, 
+                detail="Missing X-CSRF-Protection header"
+            )
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    
+    # Check cookie first, then auth header
+    token = request.cookies.get("session_token")
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+            
+    if not token:
+        raise credentials_exception
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")

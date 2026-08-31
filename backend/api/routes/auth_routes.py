@@ -14,8 +14,14 @@ class Token(BaseModel):
 class ReviewerProfile(BaseModel):
     email: str
 
+from fastapi import Response
+
 @router.post("/login", response_model=Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_db)):
+async def login_for_access_token(
+    response: Response,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    session: Session = Depends(get_db)
+):
     reviewer = session.exec(select(Reviewer).where(Reviewer.email == form_data.username)).first()
     if not reviewer or not verify_password(form_data.password, reviewer.hashed_password):
         raise HTTPException(
@@ -24,6 +30,16 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token = create_access_token(data={"sub": reviewer.email})
+    
+    response.set_cookie(
+        key="session_token",
+        value=access_token,
+        httponly=True,
+        secure=True,
+        samesite="strict",
+        max_age=8 * 3600
+    )
+    
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.get("/me", response_model=ReviewerProfile)

@@ -4,10 +4,12 @@ import { useAuthStore } from '../store/auth'
 
 const api = axios.create({
   baseURL: 'http://127.0.0.1:8000', // Update for prod if needed
+  withCredentials: true,
 })
 
 api.interceptors.request.use(
   (config) => {
+    config.headers['X-CSRF-Protection'] = '1'
     const token = useAuthStore.getState().token
     if (token) {
       config.headers.Authorization = `Bearer ${token}`

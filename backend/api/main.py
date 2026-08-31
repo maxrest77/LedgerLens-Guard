@@ -35,9 +35,16 @@ class LockdownMiddleware(BaseHTTPMiddleware):
                 )
         return await call_next(request)
 
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'"
+        return response
+
 # Middleware order matters! Lockdown is added FIRST so it becomes the INNER layer.
 # CORS is added SECOND so it becomes the OUTER layer and always adds headers.
 app.add_middleware(LockdownMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[os.getenv("ALLOWED_ORIGINS", "http://localhost:5173")],
