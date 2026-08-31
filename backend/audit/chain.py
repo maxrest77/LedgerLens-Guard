@@ -50,7 +50,7 @@ def append_to_chain(session: Session, case_id: str, reviewer: str, action: str, 
         
         # Store as ISO string directly to guarantee hash consistency on verification
         timestamp_str = datetime.utcnow().isoformat()
-        payload_str = json.dumps(payload_snapshot, sort_keys=True)
+        payload_str = json.dumps(payload_snapshot, sort_keys=True, separators=(',', ':'))
         
         b_hash = compute_hash(
             index=new_index,
