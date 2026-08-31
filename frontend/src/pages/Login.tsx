@@ -91,11 +91,13 @@ export default function Login() {
           </CardContent>
         </Card>
 
-        <div className="mt-8 text-center text-[11px] text-muted-foreground font-mono bg-secondary/50 p-4 rounded-xl border border-subtle">
-          <p className="font-semibold text-foreground mb-1">DEMO CREDENTIALS</p>
-          <p>Email: <span className="text-foreground">reviewer@ledgerlens.dev</span></p>
-          <p>Password: <span className="text-foreground">demo_reviewer_2024</span></p>
-        </div>
+        {import.meta.env.VITE_DEMO_MODE === 'true' && (
+          <div className="mt-8 text-center text-[11px] text-muted-foreground font-mono bg-secondary/50 p-4 rounded-xl border border-subtle">
+            <p className="font-semibold text-foreground mb-1">DEMO CREDENTIALS</p>
+            <p>Email: <span className="text-foreground">reviewer@ledgerlens.dev</span></p>
+            <p>Password: <span className="text-foreground">demo_reviewer_2024</span></p>
+          </div>
+        )}
       </div>
     </div>
   )
