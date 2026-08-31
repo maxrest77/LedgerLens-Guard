@@ -45,14 +45,15 @@ def generate_evidence_pack_pdf(case: ReconciliationCase) -> io.BytesIO:
     elements.append(table)
     elements.append(Spacer(1, 20))
     
+    import html
     # Explanation
     elements.append(Paragraph("System Explanation", styles['Heading2']))
-    elements.append(Paragraph(case.explanation, normal_style))
+    elements.append(Paragraph(html.escape(case.explanation), normal_style))
     elements.append(Spacer(1, 20))
     
     # Suggested Action
     elements.append(Paragraph("Suggested Action", styles['Heading2']))
-    elements.append(Paragraph(case.suggested_action, normal_style))
+    elements.append(Paragraph(html.escape(case.suggested_action), normal_style))
     elements.append(Spacer(1, 20))
     
     # Forensic Identifiers

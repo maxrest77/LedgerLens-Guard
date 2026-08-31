@@ -2,6 +2,7 @@
 
 | ID | Status | Description | Remediation |
 |---|---|---|---|
+| B4 | Fixed | Demo credentials shown in login UI | Gated demo credentials display in `Login.tsx` behind the `import.meta.env.VITE_DEMO_MODE === 'true'` environment variable. |
 | B1 | Fixed | JWT stored in localStorage | Moved JWT to an `httpOnly`, `Secure`, `SameSite=Strict` cookie in FastAPI. Removed local storage persistence from frontend `auth.ts`. |
 | C3 | Fixed | No CSP / CSRF protection | Added `X-CSRF-Protection` header requirement on all mutating endpoints. Added `SecurityHeadersMiddleware` with strict `Content-Security-Policy`. |
 | G1 | Fixed | No webhook replay/idempotency protection | Added `ProcessedWebhook` table to store processed event IDs. Implemented 5-minute timestamp freshness check and duplicate event ID rejection to prevent replay attacks and double-processing. |

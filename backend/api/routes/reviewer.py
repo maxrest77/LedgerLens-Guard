@@ -55,6 +55,9 @@ async def review_case(
             detail="Cannot directly approve CRITICAL severity cases. Escalation required.",
         )
 
+    import html
+    action_data.reason = html.escape(action_data.reason)
+
     # Snapshot current state before mutation
     snapshot = case.model_dump(mode="json")
 
