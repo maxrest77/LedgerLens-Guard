@@ -46,6 +46,9 @@ def detect_ip_clustering(payments: List[Payment], target_date: datetime) -> List
     ip_counts = {}
     for p in payments:
         if p.captured_at.date() == target_date.date():
-            ip_counts[p.originating_ip] = ip_counts.get(p.originating_ip, 0) + 1
+            if p.payment_method in (PaymentMethod.CREDIT_CARD, PaymentMethod.DEBIT_CARD):
+                from backend.utils.crypto import decrypt_pii
+                ip = decrypt_pii(p.originating_ip)
+                ip_counts[ip] = ip_counts.get(ip, 0) + 1
             
     return [ip for ip, count in ip_counts.items() if count > 5]

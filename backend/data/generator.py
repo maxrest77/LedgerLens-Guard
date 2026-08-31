@@ -7,6 +7,7 @@ from backend.data.schema import (
     PaymentMethod, PaymentStatus, AdjustmentType,
 )
 from backend.engine.fee_table import calculate_fee_paisa, calculate_tax_paisa
+from backend.utils.crypto import encrypt_pii
 
 # ── Constants ────────────────────────────────────────────────────────────────
 MERCHANT_ID = "merch_101"
@@ -43,8 +44,8 @@ def _create_payment(day_index: int, amount_paisa: int | None = None, method: Pay
         payment_method=meth,
         status=PaymentStatus.CAPTURED,
         captured_at=_date_for_day(day_index) + timedelta(hours=random.randint(0, 23), minutes=random.randint(0, 59)),
-        originating_ip=ip,
-        customer_id=f"cust_{uuid.uuid4().hex[:8]}",
+        originating_ip=encrypt_pii(ip),
+        customer_id=encrypt_pii(f"cust_{uuid.uuid4().hex[:8]}"),
         bank_code=random.choice(["HDFC", "ICIC", "SBIN", "UTIB"]),
     )
 
