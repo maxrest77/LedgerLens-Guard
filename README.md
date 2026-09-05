@@ -10,10 +10,6 @@
 
 ---
 
-## 🌐 Live Production Deployment
-- **Production Web Application**: [https://ledgerlens-guard-maxrest77s-projects.vercel.app](https://ledgerlens-guard-maxrest77s-projects.vercel.app)
-- **Deployment Preview**: [https://ledgerlens-guard-nirdlmsmx-maxrest77s-projects.vercel.app](https://ledgerlens-guard-nirdlmsmx-maxrest77s-projects.vercel.app)
-- **Interactive API Swagger Docs**: `http://localhost:8000/docs`
 
 ---
 
