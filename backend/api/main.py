@@ -165,7 +165,7 @@ app.include_router(reconciliation.router, prefix="/api", tags=["Reconciliation"]
 app.include_router(exceptions.router, prefix="/api", tags=["Exceptions"])
 app.include_router(reviewer.router, prefix="/api", tags=["Reviewer"])
 app.include_router(audit.router, prefix="/api", tags=["Audit"])
-app.include_router(admin.router, prefix="/api", tags=["Admin"])
+app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(export.router, prefix="/export", tags=["Export"])
 app.include_router(webhooks.router, prefix="/webhooks", tags=["Webhooks"])
 app.include_router(evidence.router, prefix="/api", tags=["Evidence"])
