@@ -217,6 +217,6 @@ npm run build
 
 - **GitHub**: [@maxrest77](https://github.com/maxrest77)
 - **Repository**: [https://github.com/maxrest77/LedgerLens-Guard](https://github.com/maxrest77/LedgerLens-Guard)
-- **Production URL**: [https://ledgerlens-guard-maxrest77s-projects.vercel.app](https://ledgerlens-guard-maxrest77s-projects.vercel.app)
+
 
 *Done by Karthikeyan S — 2026*
