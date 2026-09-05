@@ -150,34 +150,55 @@ All monetary representations are strictly parsed and calculated in **integer pai
 
 ---
 
-## 🚀 Quickstart & Local Setup
+## 🚀 Quickstart & Local Setup (Evaluator Guide)
 
-### Prerequisites
-- Python 3.11+ (recommended: [`uv`](https://github.com/astral-sh/uv) package manager)
-- Node.js 20+ and `npm` / `pnpm`
+To run the project locally, you will need two terminal windows: one for the Python backend, and one for the React frontend. 
 
-### 1. Clone Repository
+**Prerequisites:**
+- Python 3.10+
+- Node.js 18+
+
+#### 1. Clone the Repository
 ```bash
 git clone https://github.com/maxrest77/LedgerLens-Guard.git
 cd LedgerLens-Guard
 ```
 
-### 2. Backend Setup
-```bash
-# Install dependencies and launch FastAPI server
-uv run --directory backend uvicorn backend.api.main:app --host 127.0.0.1 --port 8000 --reload
-```
-- API Endpoint: `http://127.0.0.1:8000`
-- Interactive Swagger UI: `http://127.0.0.1:8000/docs`
-- Seeded test database initializes automatically on startup.
+#### 2. Start the Backend (Terminal 1)
+The backend uses a local SQLite database by default. It requires zero configuration and automatically seeds itself with 1,100 rows of highly realistic cryptographic transaction data on startup.
 
-### 3. Frontend Setup
+**If you have `uv` installed (Recommended):**
+```bash
+cd backend
+uv run uvicorn api.main:app --host 127.0.0.1 --port 8000
+```
+
+**If you are using standard Python (pip):**
+```bash
+cd backend
+python -m venv venv
+# Windows: venv\Scripts\activate
+# Mac/Linux: source venv/bin/activate
+pip install fastapi uvicorn sqlmodel "passlib[bcrypt]" pyjwt python-multipart httpx
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+```
+
+- **Backend API is now running at:** `http://127.0.0.1:8000`
+- **Interactive Swagger Docs:** `http://127.0.0.1:8000/docs`
+
+#### 3. Start the Frontend (Terminal 2)
 ```bash
 cd frontend
 npm install
-npm run dev
+
+# Start the frontend and connect it to the local Python backend
+VITE_API_URL=http://127.0.0.1:8000 npm run dev
 ```
-- Frontend UI: `http://localhost:5173`
+*(Note for Windows PowerShell users: Run `$env:VITE_API_URL="http://127.0.0.1:8000"; npm run dev`)*
+
+- **Frontend UI is now running at:** `http://localhost:5173`
+
+Open `http://localhost:5173` in your browser and log in using the seeded credentials!
 
 ---
 
