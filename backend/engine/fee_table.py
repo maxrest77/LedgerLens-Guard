@@ -67,5 +67,5 @@ def round_half_up(value_paisa: int, divisor: int) -> int:
     return (value_paisa + (divisor // 2)) // divisor
 
 def calculate_tax_paisa(fee_paisa: int) -> int:
-    """GST = 18% of fee. Razorpay rounds half up."""
+    """GST = 18% of fee. VelocePay rounds half up."""
     return round_half_up(fee_paisa * 18, 100)

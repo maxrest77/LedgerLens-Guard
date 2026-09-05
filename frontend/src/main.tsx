@@ -5,9 +5,13 @@ import { Toaster } from 'sonner'
 import { router } from './router'
 import './index.css'
 
+import { ErrorBoundary } from './components/common/ErrorBoundary'
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <RouterProvider router={router} />
-    <Toaster theme="dark" position="bottom-right" richColors />
+    <ErrorBoundary>
+      <RouterProvider router={router} />
+      <Toaster theme="dark" position="bottom-right" richColors />
+    </ErrorBoundary>
   </StrictMode>
 )

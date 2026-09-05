@@ -6,20 +6,93 @@ import { Button } from '../components/ui/button'
 import { Textarea } from '../components/ui/textarea'
 import api from '../lib/api'
 import { formatPaisa, formatDateTime } from '../lib/formatters'
-import { ArrowLeft, AlertCircle, FileText, Download, ShieldCheck, X, Maximize2, Search } from 'lucide-react'
+import { ArrowLeft, AlertCircle, FileText, Download, ShieldCheck, X, Maximize2, Search, UploadCloud, Share2, Bot, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
+import { useAuthStore } from '../store/auth'
+import ExecutivePreviewModal from '../components/evidence/ExecutivePreviewModal'
+import EvidenceUploader from '../components/evidence/EvidenceUploader'
+import { GenerateVaultLinkModal } from '../components/evidence/GenerateVaultLinkModal'
 
-import { CaseDetail } from './Workspace'
+interface PaymentEvidence {
+  payment_id: string
+  amount_paisa: number
+  captured_at: string
+  payment_method: string
+  customer_id: string
+  bank_code: string
+  status: string
+}
+
+interface SettlementEvidence {
+  settlement_id: string
+  settled_at: string
+  gross_paisa: number
+  fee_paisa: number
+  tax_paisa: number
+  net_paisa: number
+}
+
+interface BankEntryEvidence {
+  utr: string
+  amount_paisa: number
+  value_date: string
+  bank_reference: string
+}
+
+interface AdjustmentEvidence {
+  adjustment_id: string
+  type: string
+  amount_paisa: number
+  reason: string
+}
+
+interface CaseEvidence {
+  payments?: PaymentEvidence[]
+  settlement?: SettlementEvidence
+  bank_entry?: BankEntryEvidence
+  adjustments?: AdjustmentEvidence[]
+}
+
+interface CaseData {
+  case_id: string
+  portfolio_id?: string
+  exception_code: string
+  severity: string
+  status: string
+  opened_at: string
+  resolved_at?: string | null
+  resolved_by?: string | null
+  co_reviewer_email?: string | null
+  audit_block_id?: number | null
+  confidence_score: number
+  expected_paisa: number
+  actual_paisa: number
+  delta_paisa: number
+  explanation: string
+  suggested_action: string
+  settlement_id?: string | null
+  payment_id?: string | null
+  utr?: string | null
+}
+
+interface ExceptionDetailResponse {
+  case: CaseData
+  evidence: CaseEvidence
+}
 
 export default function ExceptionDetail() {
+  const { reviewer } = useAuthStore()
   const { id } = useParams()
   const navigate = useNavigate()
-  const [data, setData] = useState<CaseDetail | null>(null)
+  const [data, setData] = useState<ExceptionDetailResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [isHypothesisOpen, setIsHypothesisOpen] = useState(false)
   const [isEvidenceAnalysisOpen, setIsEvidenceAnalysisOpen] = useState(false)
+  const [isExecutiveModalOpen, setIsExecutiveModalOpen] = useState(false)
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
 
   const buildForensicBriefing = () => {
     if (!data) return []
@@ -97,7 +170,7 @@ export default function ExceptionDetail() {
     // 4. Risk Assessment
     const risks: string[] = []
     if (c.severity === 'CRITICAL') {
-      risks.push(`This is classified as CRITICAL severity. The financial exposure of ${formatPaisa(Math.abs(c.delta_paisa))} exceeds the threshold for automatic escalation. Immediate review by the finance team is required before settlement reconciliation can proceed.`)
+      risks.push(`This is classified as CRITICAL severity. The financial exposure of ${formatPaisa(Math.abs(c.delta_paisa))} exceeds the threshold for automatic escalation. Immediate review by the admin team is required before settlement reconciliation can proceed.`)
     } else if (c.severity === 'HIGH') {
       risks.push(`This HIGH-severity exception represents a financial exposure of ${formatPaisa(Math.abs(c.delta_paisa))}. While not critical, it requires prompt attention to prevent accumulation of unreconciled balances.`)
     } else {
@@ -116,6 +189,11 @@ export default function ExceptionDetail() {
   }
 
   useEffect(() => {
+    setData(null)
+    setLoading(true)
+    setIsExecutiveModalOpen(false)
+    setIsEvidenceAnalysisOpen(false)
+    setIsHypothesisOpen(false)
     fetchCase()
   }, [id])
 
@@ -137,16 +215,23 @@ export default function ExceptionDetail() {
       return
     }
     
-    if (action === 'APPROVE' && caseData?.suggested_action?.toUpperCase()?.includes('ESCALATE')) {
-      if (!window.confirm('WARNING: The system recommends ESCALATION for this exception.\n\nAre you sure you want to FORCE APPROVE? This override will be permanently recorded in the audit chain.')) {
+    if (action === 'APPROVE' && caseData?.status === 'OPEN' && caseData?.suggested_action?.toUpperCase()?.includes('ESCALATE')) {
+      const isCritical = caseData?.severity === 'CRITICAL';
+      const promptMsg = reviewer?.role === 'ADMIN'
+        ? 'WARNING: The system recommends ESCALATION for this exception.\n\nAre you sure you want to APPROVE this match? This administrative override will be permanently recorded in the audit chain.'
+        : isCritical 
+          ? 'WARNING: The system recommends ESCALATION for this exception.\n\nAre you sure you want to PROPOSE APPROVAL instead? This request will be sent to the Admin queue for final authorization.' 
+          : 'WARNING: The system recommends ESCALATION for this exception.\n\nAre you sure you want to FORCE APPROVE? This override will be permanently recorded in the audit chain.';
+      
+      if (!window.confirm(promptMsg)) {
         return
       }
     }
 
     setSubmitting(true)
     try {
-      await api.post(`/api/exceptions/${id}/review`, { action, reason })
-      toast.success(`Case ${action}D and committed to audit chain.`)
+      const res = await api.post(`/api/exceptions/${id}/review`, { action, reason })
+      toast.success(res.data.message || `Case ${action}D successfully.`)
       fetchCase() // Refresh
     } catch (err) {
       // Interceptor handles error
@@ -157,20 +242,46 @@ export default function ExceptionDetail() {
   }
 
   const handleExportPDF = async () => {
+    if (!id) return
+    setDownloadingPdf(true)
+    const code = caseData?.exception_code ? caseData.exception_code.replace(/ /g, '_') : 'AUDIT'
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+    const fileName = `LedgerLens_Evidence_Pack_${id}_${code}_${dateStr}.pdf`
     try {
       const res = await api.get(`/export/exception/${id}/pdf`, { responseType: 'blob' })
-      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+      const blob = new Blob([res.data], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.setAttribute('download', `exception_${id}_evidence.pdf`)
+      link.download = fileName
+      link.setAttribute('download', fileName)
       document.body.appendChild(link)
       link.click()
       link.remove()
-      window.URL.revokeObjectURL(url)
-    } catch (err) {
-      // Interceptor handles
+      setTimeout(() => window.URL.revokeObjectURL(url), 1000)
+      toast.success(`Downloaded: ${fileName}`)
+    } catch {
+      toast.error('Failed to download evidence PDF')
+    } finally {
+      setDownloadingPdf(false)
     }
   }
+  
+  const isGibberish = (text: string) => {
+    if (text.trim() === '') return false;
+    if (text.split(/\s+/).some(word => word.length > 20)) return true;
+    if (/(.)\1{3,}/.test(text)) return true;
+    if (/[bcdfghjklmnpqrstvwxz]{7,}/i.test(text)) return true;
+    return false;
+  };
+
+  const looksLikeGibberish = isGibberish(reason);
+  const isInvalidLength = reason.trim().length < 20 || reason.trim().split(/\s+/).length < 3 || reason.trim().length > 2000;
+  const isPendingSelf = reviewer?.role !== 'ADMIN' && data?.case?.status === 'PENDING_CO_REVIEW' && data?.case?.resolved_by === reviewer?.email;
+  const isPendingNotAdmin = data?.case?.status === 'PENDING_CO_REVIEW' && reviewer?.role !== 'ADMIN';
+  const isEscalatedSelf = reviewer?.role !== 'ADMIN' && data?.case?.status === 'ESCALATED' && data?.case?.resolved_by === reviewer?.email;
+  const isEscalatedNotAdmin = data?.case?.status === 'ESCALATED' && reviewer?.role !== 'ADMIN';
+  const isActionDisabled = submitting || isInvalidLength || isPendingSelf || isPendingNotAdmin || isEscalatedSelf || isEscalatedNotAdmin;
 
   if (loading) {
     return (
@@ -185,7 +296,7 @@ export default function ExceptionDetail() {
   if (!data) return null
 
   const { case: caseData } = data
-  const isResolved = caseData.status !== 'OPEN'
+  const isResolved = ['APPROVED', 'REJECTED', 'AUTO_RESOLVED'].includes(caseData.status)
 
   return (
     <div className="space-y-6">
@@ -212,9 +323,34 @@ export default function ExceptionDetail() {
           </h2>
           <p className="font-mono text-sm text-slate-500 tracking-tight">Case Identifier: <span className="text-slate-800 font-bold bg-white px-2 py-0.5 rounded border border-slate-200 shadow-sm ml-1">{caseData.case_id?.split('_').pop()}</span></p>
         </div>
-        <Button variant="outline" onClick={handleExportPDF} className="gap-2 shadow-sm bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold h-10">
-          <Download className="h-4 w-4" /> Export Evidence (PDF)
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              if (caseData?.case_id) {
+                window.dispatchEvent(new CustomEvent('open-ai-copilot', { detail: { caseId: caseData.case_id } }))
+              }
+            }} 
+            className="gap-2 shadow-sm bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100 hover:border-emerald-400 font-semibold h-10 transition-all"
+          >
+            <Bot className="h-4 w-4 text-emerald-600 animate-pulse" /> AI Copilot Analysis
+          </Button>
+          {reviewer?.role === 'ADMIN' && (
+            <Button 
+              variant="outline" 
+              onClick={() => setIsShareModalOpen(true)} 
+              className="gap-2 shadow-sm bg-blue-50/80 border-blue-200 text-blue-700 hover:bg-blue-100 font-semibold h-10"
+            >
+              <Share2 className="h-4 w-4 text-blue-600" /> Share with Auditor
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => setIsExecutiveModalOpen(true)} className="gap-2 shadow-sm bg-white border-slate-200 text-slate-800 hover:bg-slate-50 font-semibold h-10">
+            <FileText className="h-4 w-4 text-blue-600" /> Executive Report
+          </Button>
+          <Button variant="outline" disabled={downloadingPdf} onClick={handleExportPDF} className="gap-2 shadow-sm bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold h-10">
+            <Download className="h-4 w-4" /> {downloadingPdf ? 'Downloading PDF...' : 'Export Evidence (PDF)'}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -223,9 +359,24 @@ export default function ExceptionDetail() {
         <div className="lg:col-span-2 space-y-8">
 
           <section className="space-y-3">
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-red-500" /> Exception Hypothesis
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-red-500" /> Exception Hypothesis
+              </h3>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (caseData?.case_id) {
+                    window.dispatchEvent(new CustomEvent('open-ai-copilot', { detail: { caseId: caseData.case_id } }))
+                  }
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-semibold shadow-xs transition-colors"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                Ask AI to Reason Root Cause
+              </button>
+            </div>
             <div 
               className="px-5 py-4 bg-white/60 backdrop-blur-sm border border-slate-200/60 rounded-xl shadow-sm relative overflow-hidden cursor-pointer group hover:border-blue-300 hover:shadow-md transition-all"
               onClick={() => setIsHypothesisOpen(true)}
@@ -283,11 +434,11 @@ export default function ExceptionDetail() {
               )}
 
               {/* Linked Payments */}
-              {data.evidence?.payments?.length > 0 && (
+              {(data.evidence?.payments?.length ?? 0) > 0 && (
                 <div className="p-4 space-y-2">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Linked Payments ({data.evidence.payments.length})</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Linked Payments ({data.evidence?.payments?.length})</p>
                   <div className="space-y-2">
-                    {data.evidence.payments.map((p: any) => (
+                    {data.evidence?.payments?.map((p: any) => (
                       <div key={p.payment_id} className="flex items-center justify-between bg-slate-50/80 rounded-lg px-3 py-2.5 border border-slate-100">
                         <div className="flex items-center gap-3">
                           <span className="font-mono text-xs text-slate-800 font-bold truncate max-w-[180px]" title={p.payment_id}>{p.payment_id}</span>
@@ -327,11 +478,11 @@ export default function ExceptionDetail() {
               )}
 
               {/* Adjustments */}
-              {data.evidence?.adjustments?.length > 0 && (
+              {(data.evidence?.adjustments?.length ?? 0) > 0 && (
                 <div className="p-4 space-y-2">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Adjustments / Deductions ({data.evidence.adjustments.length})</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Adjustments / Deductions ({data.evidence?.adjustments?.length})</p>
                   <div className="space-y-2">
-                    {data.evidence.adjustments.map((a: any) => (
+                    {data.evidence?.adjustments?.map((a: any) => (
                       <div key={a.adjustment_id} className="flex items-center justify-between bg-slate-50/80 rounded-lg px-3 py-2.5 border border-slate-100">
                         <div className="flex items-center gap-3">
                           <Badge variant="outline" className="text-[10px] shadow-none bg-red-50 text-red-700 border-red-200 font-bold">{a.type}</Badge>
@@ -350,6 +501,16 @@ export default function ExceptionDetail() {
                   No linked source records found for this exception.
                 </div>
               )}
+            </div>
+          </section>
+
+          {/* Multi-Format Ingested Dispute Evidence */}
+          <section className="space-y-3">
+            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+              <UploadCloud className="h-4 w-4 text-blue-600" /> Dispute Evidence & Multi-Format Ingestion
+            </h3>
+            <div className="bg-white/60 backdrop-blur-sm border border-slate-200/60 rounded-2xl p-6 shadow-sm">
+              <EvidenceUploader caseId={caseData.case_id} caseStatus={caseData.status} onUploadSuccess={fetchCase} />
             </div>
           </section>
 
@@ -422,7 +583,7 @@ export default function ExceptionDetail() {
                       <ShieldCheck className="h-5 w-5 text-emerald-500 mt-0.5" />
                       <div>
                         <p className="text-sm font-bold text-slate-800">Resolved by {caseData.resolved_by}</p>
-                        <p className="text-xs text-slate-500 mb-3 font-mono font-medium">{formatDateTime(caseData.resolved_at)}</p>
+                        <p className="text-xs text-slate-500 mb-3 font-mono font-medium">{caseData.resolved_at ? formatDateTime(caseData.resolved_at) : 'N/A'}</p>
                         <div className="text-sm text-slate-700 mb-3 font-medium flex items-center">
                           Action taken: <Badge variant="secondary" className="shadow-none bg-slate-100 border-slate-200 text-slate-700 ml-2 font-bold">{caseData.status}</Badge>
                         </div>
@@ -435,10 +596,10 @@ export default function ExceptionDetail() {
                 ) : (
                   <div className="space-y-5">
                     <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <label className="text-sm font-bold text-slate-700">Review Reason / Notes</label>
+                      <div className="flex justify-between items-center mb-2">
+                        <h3 className="text-sm font-semibold text-slate-800">Review Reason / Notes</h3>
                         <span className={`text-[10px] font-bold ${reason.trim().length < 20 ? 'text-red-500' : 'text-emerald-500'}`}>
-                          {reason.trim().length}/20 characters required
+                          {reason.trim().length} chars (min 20)
                         </span>
                       </div>
                       <Textarea 
@@ -448,32 +609,62 @@ export default function ExceptionDetail() {
                         onChange={(e) => setReason(e.target.value)}
                         disabled={submitting}
                       />
+                      {looksLikeGibberish && (
+                        <p className="text-xs text-amber-500 font-bold mt-1">
+                          Advisory: This input looks unusual and will be flagged for senior review.
+                        </p>
+                      )}
                     </div>
                     <div className="flex flex-col gap-3">
                       <Button 
                         className="w-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-bold rounded-lg h-11" 
                         onClick={() => handleReview('APPROVE')}
-                        disabled={submitting || reason.trim().length < 20 || reason.trim().split(/\s+/).length < 3 || caseData.severity === 'CRITICAL'}
+                        disabled={isActionDisabled}
                       >
-                        {caseData.severity === 'CRITICAL' ? 'Approval Blocked (CRITICAL Severity)' : 'Approve Match (Force)'}
+                        {reviewer?.role === 'ADMIN' 
+                          ? 'Approve Match' 
+                          : caseData.status === 'PENDING_CO_REVIEW' 
+                            ? 'Approve Match' 
+                            : caseData.severity === 'CRITICAL' 
+                              ? 'Propose Approval' 
+                              : 'Approve Match (Force)'}
                       </Button>
                       <Button 
                         variant="outline" 
                         className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 shadow-sm font-bold rounded-lg h-11"
                         onClick={() => handleReview('REJECT')}
-                        disabled={submitting || reason.trim().length < 20 || reason.trim().split(/\s+/).length < 3}
+                        disabled={isActionDisabled}
                       >
-                        Reject
+                        {reviewer?.role === 'ADMIN' 
+                          ? 'Reject Match' 
+                          : caseData.status === 'PENDING_CO_REVIEW' 
+                            ? 'Reject Match' 
+                            : caseData.severity === 'CRITICAL' 
+                              ? 'Propose Rejection' 
+                              : 'Reject'}
                       </Button>
-                      <Button 
-                        variant="secondary" 
-                        className="w-full shadow-sm font-bold bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg h-11"
-                        onClick={() => handleReview('ESCALATE')}
-                        disabled={submitting || reason.trim().length < 20 || reason.trim().split(/\s+/).length < 3}
-                      >
-                        Escalate to Finance
-                      </Button>
+                      {reviewer?.role !== 'ADMIN' && caseData.severity === 'CRITICAL' && caseData.status === 'OPEN' && (
+                        <Button 
+                          variant="secondary" 
+                          className="w-full shadow-sm font-bold bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg h-11"
+                          onClick={() => handleReview('ESCALATE')}
+                          disabled={isActionDisabled}
+                        >
+                          Escalate to Admin
+                        </Button>
+                      )}
                     </div>
+                    {isActionDisabled && (
+                      <p className="text-[11px] text-center text-amber-600 font-semibold mt-2.5">
+                        {isPendingSelf
+                          ? 'Awaiting co-review by a second distinct approver.'
+                          : isPendingNotAdmin || isEscalatedNotAdmin
+                            ? 'Only Admins can resolve this case.'
+                            : isInvalidLength
+                              ? 'Enter at least 20 characters and 3 words in Review Reason / Notes to enable action buttons.'
+                              : ''}
+                      </p>
+                    )}
                     <p className="text-[10px] text-center text-slate-500 font-bold mt-4 uppercase tracking-widest">
                       Actions are permanently written to the hash chain.
                     </p>
@@ -500,7 +691,7 @@ export default function ExceptionDetail() {
               </Button>
             </div>
             <div className="p-6 md:p-8 overflow-y-auto space-y-5">
-              {caseData.explanation.split('. ').map((para: string, idx: number, arr: string[]) => {
+              {caseData.explanation.split('. ').map((para: string, idx: number) => {
                 const text = para.trim()
                 if (!text) return null
                 return (
@@ -560,6 +751,26 @@ export default function ExceptionDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* In-App Executive Pack Print Preview Modal */}
+      {isExecutiveModalOpen && caseData && (
+        <ExecutivePreviewModal
+          key={caseData.case_id}
+          caseId={caseData.case_id}
+          isOpen={isExecutiveModalOpen}
+          onClose={() => setIsExecutiveModalOpen(false)}
+        />
+      )}
+
+      {/* Secure Auditor Retrieval Link Generator Modal */}
+      {isShareModalOpen && caseData && (
+        <GenerateVaultLinkModal
+          key={`share-${caseData.case_id}`}
+          caseId={caseData.case_id}
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+        />
       )}
     </div>
   )

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useScroll, useTransform, motion, MotionValue, useSpring } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/button'
+import NoveltyExpandedCards from '../components/common/NoveltyExpandedCards'
 
 const TOTAL_FRAMES = 190
 
@@ -10,44 +11,44 @@ const TOTAL_FRAMES = 190
 const STORY_STATES = [
   {
     id: 'hero',
-    title: 'EVERY TRANSACTION.\nEVERY PAISA.\nACCOUNTED FOR.',
-    desc: 'LedgerLens Guard acts as a unified source of truth, pulling together disparate payment gateways, banking systems, and accounting software.',
+    title: 'EVERY TRANSACTION.\nEVERY PAISA.\nCRYPTOGRAPHICALLY VERIFIED.',
+    desc: 'Autonomous 4-way financial reconciliation engine and immutable WORM audit ledger engineered for multi-gateway scale.',
     frameStart: 0,
     frameEnd: 25,
     isHero: true,
   },
   {
     id: '01',
-    title: 'EVERYTHING ENTERS.',
-    desc: 'Payments, refunds, settlements, bank entries and adjustments enter a unified ledger.',
+    title: 'MULTI-GATEWAY INGESTION.',
+    desc: 'Real-time federated normalization across VelocePay, PrismPay, ISO 20022 CAMT.053, and clearinghouse bank feeds.',
     frameStart: 35,
     frameEnd: 55,
   },
   {
     id: '02',
-    title: 'EVERY MATCH HAS A TRAIL.',
-    desc: 'PAYMENT\n→ SETTLEMENT\n→ UTR\n→ BANK CREDIT',
+    title: 'DETERMINISTIC 4-WAY RECON.',
+    desc: 'PAYMENT GATEWAY\n→ SETTLEMENT BATCH\n→ BANK UTR\n→ VERIFIED ACCOUNT CREDIT',
     frameStart: 65,
     frameEnd: 85,
   },
   {
     id: '03',
-    title: "EXCEPTIONS DON'T HIDE.",
-    desc: 'SHORTFALL • MISSING • FEE MISMATCH • DUPLICATE',
+    title: "ANOMALIES PINPOINTED INSTANTLY.",
+    desc: 'MDR DRIFT • UNSETTLED PAYMENTS • TAX VARIANCES • DUPLICATE CHARGES\n\nAutomated root-cause scoring with counterfactual near-miss diagnosis.',
     frameStart: 95,
     frameEnd: 115,
   },
   {
     id: '04',
-    title: 'EVERY AMOUNT IS TRACEABLE.',
-    desc: 'GROSS\n→ MDR\n→ GST\n→ ADJUSTMENTS\n→ EXPECTED\n→ BANK CREDIT',
+    title: 'EXACT PAISA MATHEMATICS.',
+    desc: 'GROSS CAPTURED\n→ CONTRACTUAL MDR\n→ 18% GST DEDUCTION\n→ CHARGEBACK ADJUSTMENTS\n→ NET SETTLEMENT DUE\n→ VERIFIED BANK CREDIT',
     frameStart: 125,
     frameEnd: 145,
   },
   {
     id: '05',
-    title: 'EVERY ACTION LEAVES EVIDENCE.',
-    desc: 'AUDIT CHAIN\n\n1024 → 1025 → 1026 → 1027 → 1028',
+    title: 'IMMUTABLE WORM AUDIT TRAIL.',
+    desc: 'MAKER-CHECKER MULTI-SIG\n→ SHA-256 HASH CHAIN\n→ OPENTIMESTAMPS BITCOIN ANCHOR\n→ SEALED REGULATORY EVIDENCE PACK',
     frameStart: 155,
     frameEnd: 190, // Final state holds
   },
@@ -143,11 +144,35 @@ export default function LandingStory() {
             <span className="text-red-600 font-mono">_</span>
             LEDGERLENS
           </h1>
-          <div className="hidden lg:flex items-center gap-8 text-sm font-semibold text-slate-600">
-            <span className="hover:text-slate-900 cursor-pointer transition-colors">Products</span>
-            <span className="hover:text-slate-900 cursor-pointer transition-colors">Banking+</span>
-            <span className="hover:text-slate-900 cursor-pointer transition-colors">Payroll</span>
-            <span className="hover:text-slate-900 cursor-pointer transition-colors">Resources</span>
+          <div className="hidden lg:flex items-center gap-7 text-sm font-semibold text-slate-600">
+            <span 
+              className="hover:text-slate-900 cursor-pointer transition-colors"
+              onClick={() => {
+                const el = document.getElementById('recon-overview')
+                if (el) el.scrollIntoView({ behavior: 'smooth' })
+              }}
+            >
+              Reconciliation
+            </span>
+            <span 
+              className="hover:text-slate-900 cursor-pointer transition-colors"
+              onClick={() => {
+                const el = document.getElementById('architecture-novelty')
+                if (el) el.scrollIntoView({ behavior: 'smooth' })
+              }}
+            >
+              Architecture
+            </span>
+            <button
+              onClick={() => navigate('/journey')}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 hover:bg-blue-100/90 border border-blue-200/80 text-blue-700 font-semibold transition-all shadow-sm cursor-pointer group"
+            >
+              <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+              <span>Engineering Journey</span>
+              <span className="text-[0.65rem] bg-blue-600 text-white font-mono px-1.5 py-0.5 rounded font-bold tracking-wider uppercase group-hover:bg-blue-700 transition-colors">
+                Story
+              </span>
+            </button>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -189,30 +214,57 @@ export default function LandingStory() {
       </div>
 
       {/* Normal Page Content - Post Hero */}
-      <section className="py-32 bg-white relative z-20 border-t border-slate-200">
-        <div className="max-w-6xl mx-auto px-6 text-center space-y-8">
+      <section id="recon-overview" className="py-32 bg-white relative z-20 border-t border-slate-200">
+        <div className="max-w-6xl mx-auto px-6 text-center space-y-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200/70 text-blue-700 font-mono text-xs font-semibold uppercase tracking-wider">
+            Enterprise Financial Integrity
+          </div>
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900">
-            Effortless Financial Reconciliation
+            Institutional-Grade Reconciliation & Control
           </h2>
-          <p className="text-xl text-slate-500 max-w-3xl mx-auto leading-relaxed">
-            LedgerLens Guard acts as a unified source of truth, pulling together disparate payment gateways, banking systems, and accounting software. Discover discrepancies instantly with deterministic rules.
+          <p className="text-lg md:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
+            LedgerLens Guard unifies multi-PSP settlement feeds, ISO 20022 bank statements, and accounting entries into an automated source of truth. Detect variances with integer paisa precision, enforce Maker-Checker governance, and anchor proof to an immutable WORM audit chain.
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-16">
-            <div className="p-10 bg-[#F8FAFC] border border-slate-200 rounded-3xl shadow-sm text-left hover:shadow-md transition-shadow">
-              <h3 className="font-bold text-xl mb-4 text-slate-900">Automated Matching</h3>
-              <p className="text-slate-600 leading-relaxed">Match millions of transactions across UTRs, Settlement IDs, and Payment IDs with zero manual intervention.</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-12">
+            <div className="p-8 md:p-10 bg-[#F8FAFC] border border-slate-200/80 rounded-3xl shadow-sm text-left hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between">
+              <div>
+                <div className="font-mono text-xs text-blue-600 font-bold uppercase tracking-wider mb-3">
+                  01 / Matching Engine
+                </div>
+                <h3 className="font-bold text-xl mb-3 text-slate-900">Deterministic 4-Way Matching</h3>
+                <p className="text-slate-600 text-sm md:text-base leading-relaxed">
+                  Reconcile complex payment flows across Gateway Payments, Settlement Batches, Bank UTRs, and Account Credits with exact integer paisa arithmetic and zero rounding drift.
+                </p>
+              </div>
             </div>
-            <div className="p-10 bg-[#F8FAFC] border border-slate-200 rounded-3xl shadow-sm text-left hover:shadow-md transition-shadow">
-              <h3 className="font-bold text-xl mb-4 text-slate-900">Cryptographic Audit</h3>
-              <p className="text-slate-600 leading-relaxed">Every reviewer action is hashed in an immutable blockchain ledger, preventing unauthorized changes.</p>
+            <div className="p-8 md:p-10 bg-[#F8FAFC] border border-slate-200/80 rounded-3xl shadow-sm text-left hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between">
+              <div>
+                <div className="font-mono text-xs text-blue-600 font-bold uppercase tracking-wider mb-3">
+                  02 / Cryptographic WORM
+                </div>
+                <h3 className="font-bold text-xl mb-3 text-slate-900">Immutable Audit Chain</h3>
+                <p className="text-slate-600 text-sm md:text-base leading-relaxed">
+                  Every reviewer decision, threshold override, and case resolution is sealed in a sequential SHA-256 hash chain anchored to external Bitcoin calendar proofs—stopping silent tampering.
+                </p>
+              </div>
             </div>
-            <div className="p-10 bg-[#F8FAFC] border border-slate-200 rounded-3xl shadow-sm text-left hover:shadow-md transition-shadow">
-              <h3 className="font-bold text-xl mb-4 text-slate-900">Forensic Insights</h3>
-              <p className="text-slate-600 leading-relaxed">Identify exact fee mismatches, missing credits, and duplicate entries with mathematically proven deltas.</p>
+            <div className="p-8 md:p-10 bg-[#F8FAFC] border border-slate-200/80 rounded-3xl shadow-sm text-left hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between">
+              <div>
+                <div className="font-mono text-xs text-blue-600 font-bold uppercase tracking-wider mb-3">
+                  03 / Forensic Insights
+                </div>
+                <h3 className="font-bold text-xl mb-3 text-slate-900">Forensic Anomaly Intelligence</h3>
+                <p className="text-slate-600 text-sm md:text-base leading-relaxed">
+                  Automatically isolate MDR fee miscalculations, missing bank credits, and settlement timing gaps with counterfactual near-miss diagnosis and multi-signal risk clustering.
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </section>
+ 
+      {/* Novelty & Differentiation - Expanding Flex Cards */}
+      <NoveltyExpandedCards />
 
       {/* Access Terminal CTA */}
       <section className="py-32 bg-slate-900 text-white relative z-20">
@@ -308,10 +360,28 @@ function StoryPanel({ state, frameIndex, navigate }: { state: any, frameIndex: M
             ))}
           </h2>
           
-          <div className="text-base text-slate-600 font-medium leading-relaxed max-w-sm">
-            {state.desc.split('\n').map((line: string, i: number) => (
-              <span key={i} className="block">{line}</span>
-            ))}
+          <div className="text-base text-slate-600 font-medium leading-relaxed max-w-md space-y-1">
+            {state.desc.split('\n').map((line: string, i: number) => {
+              if (line === '') {
+                return <div key={i} className="h-2" />
+              }
+              const isArrow = line.startsWith('→')
+              const isBulletList = line.includes('•')
+              return (
+                <span
+                  key={i}
+                  className={`block ${
+                    isArrow
+                      ? 'font-mono text-xs tracking-wider text-slate-800 font-semibold pl-1.5'
+                      : isBulletList
+                      ? 'font-mono text-[0.78rem] text-blue-700 font-semibold tracking-wide py-0.5'
+                      : ''
+                  }`}
+                >
+                  {line}
+                </span>
+              )
+            })}
           </div>
 
           {state.isHero && (

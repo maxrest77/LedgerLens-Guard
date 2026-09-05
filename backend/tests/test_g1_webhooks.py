@@ -11,7 +11,7 @@ from backend.data.schema import ProcessedWebhook
 from sqlalchemy.pool import StaticPool
 import os
 
-os.environ["RAZORPAY_WEBHOOK_SECRET"] = "test_secret"
+os.environ["VELOCEPAY_WEBHOOK_SECRET"] = "test_secret"
 from backend.api.middleware.webhook_verify import SECRET
 
 @pytest.fixture(name="session")
@@ -47,7 +47,7 @@ def test_g1_webhook_idempotency_and_freshness(client, session):
     payload_valid = json.dumps({"id": "evt_1", "created_at": now, "event": "payment.captured"}).encode("utf-8")
     sig_valid = get_signature(payload_valid)
     
-    res1 = client.post("/webhooks/razorpay", content=payload_valid, headers={"X-Razorpay-Signature": sig_valid})
+    res1 = client.post("/webhooks/velocepay", content=payload_valid, headers={"X-VelocePay-Signature": sig_valid})
     assert res1.status_code == 200
     assert res1.json()["event_received"] == "payment.captured"
     
@@ -55,7 +55,7 @@ def test_g1_webhook_idempotency_and_freshness(client, session):
     assert session.get(ProcessedWebhook, "evt_1") is not None
 
     # 2. Replay same webhook (idempotency failure)
-    res2 = client.post("/webhooks/razorpay", content=payload_valid, headers={"X-Razorpay-Signature": sig_valid})
+    res2 = client.post("/webhooks/velocepay", content=payload_valid, headers={"X-VelocePay-Signature": sig_valid})
     assert res2.status_code == 409
     assert "already processed" in res2.json()["detail"]
     
@@ -63,6 +63,6 @@ def test_g1_webhook_idempotency_and_freshness(client, session):
     payload_old = json.dumps({"id": "evt_2", "created_at": now - 600, "event": "payment.captured"}).encode("utf-8")
     sig_old = get_signature(payload_old)
     
-    res3 = client.post("/webhooks/razorpay", content=payload_old, headers={"X-Razorpay-Signature": sig_old})
+    res3 = client.post("/webhooks/velocepay", content=payload_old, headers={"X-VelocePay-Signature": sig_old})
     assert res3.status_code == 400
     assert "tolerance" in res3.json()["detail"]

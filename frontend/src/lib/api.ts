@@ -3,16 +3,22 @@ import { toast } from 'sonner'
 import { useAuthStore } from '../store/auth'
 
 const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000', // Update for prod if needed
+  baseURL: import.meta.env.VITE_API_URL || '',
   withCredentials: true,
 })
 
 api.interceptors.request.use(
   (config) => {
     config.headers['X-CSRF-Protection'] = '1'
-    const token = useAuthStore.getState().token
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+    
+    // Attach Bearer token if available
+    const token = localStorage.getItem('access_token')
+    if (token && !config.headers['Authorization']) {
+      config.headers['Authorization'] = `Bearer ${token}`
+    }
+
+    if (['post', 'put', 'patch'].includes(config.method?.toLowerCase() || '')) {
+      config.headers['Idempotency-Key'] = crypto.randomUUID()
     }
     return config
   },
@@ -22,12 +28,18 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    const url = error.config?.url || ''
+    const isSilentAuth = url.includes('/auth/refresh') || url.includes('/auth/login') || url.includes('/auth/me') || url.includes('/vault/share') || url.includes('/vault/access')
     if (error.response?.status === 401) {
-      useAuthStore.getState().logout()
-      toast.error('Session expired. Please log in again.')
+      if (!isSilentAuth) {
+        useAuthStore.getState().logout()
+        toast.error('Session expired. Please log in again.')
+      }
     } else {
       const msg = error.response?.data?.detail ?? 'An unexpected error occurred.'
-      toast.error(msg)
+      if (!isSilentAuth) {
+        toast.error(msg)
+      }
     }
     return Promise.reject(error)
   }

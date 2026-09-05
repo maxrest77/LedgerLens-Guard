@@ -1,0 +1,294 @@
+import { useState, useRef, useEffect } from 'react'
+import { 
+  Bot, Send, X, 
+  Copy, ShieldCheck, 
+  RefreshCw, Clock
+} from 'lucide-react'
+import api from '../../lib/api'
+import { toast } from 'sonner'
+import { Button } from '../ui/button'
+
+interface AICopilotDrawerProps {
+  isOpen: boolean
+  onClose: () => void
+  initialCaseId?: string | null
+}
+
+interface ChatMessage {
+  id: string
+  sender: 'user' | 'assistant'
+  text: string
+  intent?: string
+  verified?: boolean
+  latencyMs?: number
+  timestamp: string
+}
+
+export default function AICopilotDrawer({ isOpen, onClose, initialCaseId }: AICopilotDrawerProps) {
+  const [inputQuery, setInputQuery] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: 'welcome',
+      sender: 'assistant',
+      text: "### 👋 Autonomous AI Finance Controller\n\nI am your in-engine sovereign reasoning agent. I perform **real-time forensic ledger investigation**, **unhedged exposure auditing**, **contractual MDR dispute drafting**, and **settlement nowcasting**.\n\nEvery figure I report is mathematically verified against the deterministic 4-way reconciliation ledger with **zero floating-point hallucination**.",
+      verified: true,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+  ])
+
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  useEffect(() => {
+    if (isOpen) {
+      scrollToBottom()
+      if (initialCaseId) {
+        handleSendQuery(`Investigate root cause anomaly for ${initialCaseId}`, initialCaseId)
+      }
+    }
+  }, [isOpen, initialCaseId])
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages])
+
+  const handleSendQuery = async (queryText: string, caseIdParam?: string | null) => {
+    const q = queryText.trim()
+    if (!q || loading) return
+
+    const userMsg: ChatMessage = {
+      id: `user-${Date.now()}`,
+      sender: 'user',
+      text: q,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+
+    setMessages((prev) => [...prev, userMsg])
+    setInputQuery('')
+    setLoading(true)
+
+    try {
+      const res = await api.post('/api/copilot/query', {
+        query: q,
+        case_id: caseIdParam || initialCaseId || undefined
+      })
+
+      const assistantMsg: ChatMessage = {
+        id: `ai-${Date.now()}`,
+        sender: 'assistant',
+        text: res.data.response,
+        intent: res.data.intent,
+        verified: res.data.verified,
+        latencyMs: res.data.latency_ms,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }
+
+      setMessages((prev) => [...prev, assistantMsg])
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || 'AI Controller failed to process query')
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `err-${Date.now()}`,
+          sender: 'assistant',
+          text: "⚠️ **System Alert**: Failed to query the in-engine controller. Please verify server connectivity.",
+          verified: false,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (!isOpen) return null
+
+  const promptSuggestions = [
+    { label: "Unhedged Exposure", query: "What is our total unhedged exposure across all gateways?" },
+    { label: "Investigate Anomaly", query: initialCaseId ? `Investigate anomaly for ${initialCaseId}` : "Investigate the highest severity open exception" },
+    { label: "Draft Gateway Dispute", query: "Draft a formal dispute notice for MDR fee overcharge" },
+    { label: "Settlement Nowcast", query: "Forecast tomorrow's cash arrivals and settlement delay risk" },
+  ]
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+    toast.success("Copied to clipboard")
+  }
+
+  return (
+    <div 
+      className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex justify-end animate-in fade-in duration-200"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="bg-white w-full max-w-xl h-full shadow-2xl flex flex-col border-l border-slate-200 animate-in slide-in-from-right duration-300">
+        {/* Header */}
+        <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-md">
+              <Bot className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-sm text-white">AI Finance Controller</h3>
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  Sovereign Engine
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">Zero Cloud API Dependencies • Cryptographically Grounded</p>
+            </div>
+          </div>
+
+          <button 
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Quick Suggestion Chips */}
+        <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2 overflow-x-auto no-scrollbar">
+          <span className="text-[10px] uppercase font-bold text-slate-400 shrink-0">Prompts:</span>
+          {promptSuggestions.map((p, idx) => (
+            <button
+              key={idx}
+              onClick={() => handleSendQuery(p.query)}
+              disabled={loading}
+              className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-900 border border-slate-200 hover:border-indigo-300 transition-all shrink-0 cursor-pointer shadow-2xs"
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Message Stream */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/30">
+          {messages.map((m) => (
+            <div 
+              key={m.id}
+              className={`flex flex-col ${m.sender === 'user' ? 'items-end' : 'items-start'}`}
+            >
+              <div 
+                className={`max-w-[90%] rounded-2xl p-4 text-xs leading-relaxed ${
+                  m.sender === 'user'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-white border border-slate-200 text-slate-800 shadow-sm'
+                }`}
+              >
+                {/* Assistant Markdown-rendered response */}
+                <div className="prose prose-xs max-w-none space-y-2 text-inherit">
+                  {m.text.split('\n\n').map((para, i) => {
+                    if (para.startsWith('### ')) {
+                      return <h4 key={i} className="font-bold text-sm text-slate-900 border-b pb-1 mb-2">{para.replace('### ', '')}</h4>
+                    }
+                    if (para.startsWith('#### ')) {
+                      return <h5 key={i} className="font-bold text-xs text-slate-800 mt-2">{para.replace('#### ', '')}</h5>
+                    }
+                    if (para.startsWith('```')) {
+                      const cleanCode = para.replace(/```[a-z]*\n?/g, '')
+                      return (
+                        <div key={i} className="relative my-2">
+                          <pre className="p-3 bg-slate-900 text-slate-100 rounded-xl text-[10px] font-mono overflow-x-auto whitespace-pre-wrap">
+                            {cleanCode}
+                          </pre>
+                          <button
+                            onClick={() => copyToClipboard(cleanCode)}
+                            className="absolute top-2 right-2 px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] font-mono flex items-center gap-1"
+                          >
+                            <Copy className="w-3 h-3" /> Copy
+                          </button>
+                        </div>
+                      )
+                    }
+                    if (para.startsWith('> ')) {
+                      return (
+                        <div key={i} className="p-2.5 rounded-lg bg-indigo-50/60 border-l-3 border-indigo-500 text-indigo-950 text-[11px] my-2">
+                          {para.replace('> ', '')}
+                        </div>
+                      )
+                    }
+                    return <p key={i} className="whitespace-pre-line">{para}</p>
+                  })}
+                </div>
+
+                {/* Verification & Latency Footer for Assistant Messages */}
+                {m.sender === 'assistant' && m.id !== 'welcome' && (
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                    <div className="flex items-center gap-1.5">
+                      {m.verified ? (
+                        <span className="flex items-center gap-1 text-emerald-600 font-semibold font-sans">
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          Anti-Hallucination Verified
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-amber-600 font-semibold font-sans">
+                          Deterministic Direct
+                        </span>
+                      )}
+                    </div>
+                    {m.latencyMs && (
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {m.latencyMs}ms
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <span className="text-[10px] text-slate-400 px-1 mt-1 font-mono">
+                {m.timestamp}
+              </span>
+            </div>
+          ))}
+
+          {loading && (
+            <div className="flex items-center gap-2 text-xs text-slate-500 p-3 bg-white rounded-xl border border-slate-200 max-w-[200px] shadow-xs animate-pulse">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+              <span>Reasoning over ledger...</span>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input Bar */}
+        <div className="p-4 bg-white border-t border-slate-200">
+          <form 
+            onSubmit={(e) => {
+              e.preventDefault()
+              handleSendQuery(inputQuery)
+            }}
+            className="flex items-center gap-2"
+          >
+            <input
+              type="text"
+              value={inputQuery}
+              onChange={(e) => setInputQuery(e.target.value)}
+              placeholder={initialCaseId ? `Ask about ${initialCaseId}...` : "Ask AI Finance Controller (e.g. 'Show PrismPay exposure')..."}
+              disabled={loading}
+              className="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400"
+            />
+            <Button
+              type="submit"
+              size="sm"
+              disabled={loading || !inputQuery.trim()}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4 h-10 gap-1.5 text-xs"
+            >
+              <Send className="w-3.5 h-3.5" />
+              Send
+            </Button>
+          </form>
+          <div className="mt-2 text-[10px] text-center text-slate-400">
+            Engineered with strict zero-hallucination factual gating and exact integer paisa arithmetic.
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -42,6 +42,7 @@ def test_e3_lockdown_strike_system(client, engine):
     with Session(engine) as session:
         append_to_chain(session, "case_1", "admin", "APPROVE", "reason", {})
         append_to_chain(session, "case_2", "admin", "APPROVE", "reason", {})
+        session.commit()
     
     # 2. Corrupt block 0 (case_1)
     with Session(engine) as session:

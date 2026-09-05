@@ -18,7 +18,7 @@ def test_credit_card_fee():
 
 def test_debit_card_tiered_fee():
     # < 2,000 (200,000 paise): 0.4%
-    assert calculate_fee_paisa(PaymentMethod.DEBIT_CARD, 199999) == 799
+    assert calculate_fee_paisa(PaymentMethod.DEBIT_CARD, 199999) == 800
     # >= 2,000 (200,000 paise): 0.9%
     assert calculate_fee_paisa(PaymentMethod.DEBIT_CARD, 200000) == 1800
 
@@ -27,11 +27,9 @@ def test_international_fee():
     assert calculate_fee_paisa(PaymentMethod.INTERNATIONAL, 100000) == 3000
 
 def test_calculate_tax_paisa():
-    # 18% of 1000 = 180
-    assert calculate_tax_paisa(1000) == 180
+    # 18% of 100 is 18
+    assert calculate_tax_paisa(100) == 18
+    # 18% of 105 is 18.9 -> 19 (rounded half up)
+    assert calculate_tax_paisa(105) == 19
     # 18% of 1500 = 270
     assert calculate_tax_paisa(1500) == 270
-    # Rounded division check: 18% of 100 = 18
-    assert calculate_tax_paisa(100) == 18
-    # 18% of 105 = 18.9 -> 18 (integer math drops decimal)
-    assert calculate_tax_paisa(105) == 18

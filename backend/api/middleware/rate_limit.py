@@ -5,11 +5,19 @@ import time
 from collections import defaultdict
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
+    instances = []
+
     def __init__(self, app, max_requests: int = 5, window_seconds: int = 60):
         super().__init__(app)
         self.max_requests = max_requests
         self.window_seconds = window_seconds
         self.requests = defaultdict(list)
+        RateLimitMiddleware.instances.append(self)
+        
+    @classmethod
+    def reset_all(cls):
+        for instance in cls.instances:
+            instance.requests.clear()
         
     async def dispatch(self, request: Request, call_next):
         if request.url.path == "/auth/login" and request.method == "POST":
@@ -29,5 +37,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 )
                 
             self.requests[client_ip].append(now)
+            response = await call_next(request)
+            if response.status_code == 200:
+                self.requests[client_ip].clear()
+            return response
             
         return await call_next(request)

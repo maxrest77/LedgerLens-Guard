@@ -9,9 +9,13 @@ from backend.db.init import engine
 from backend.data.schema import Reviewer
 from passlib.context import CryptContext
 
-SECRET_KEY = os.getenv("SECRET_KEY", "change_this_to_a_long_random_string_in_production")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_HOURS = int(os.getenv("TOKEN_EXPIRE_HOURS", "8"))
+from backend.config.settings import settings
+from backend.utils.time_utils import utc_now
+
+SECRET_KEY = settings.SECRET_KEY
+ALGORITHM = settings.ALGORITHM
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
+REFRESH_TOKEN_EXPIRE_DAYS = settings.REFRESH_TOKEN_EXPIRE_DAYS
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
@@ -29,10 +33,10 @@ def get_password_hash(password):
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = utc_now() + expires_delta
     else:
         # Access token is short-lived (15 minutes)
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = utc_now() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -40,10 +44,10 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = utc_now() + expires_delta
     else:
         # Refresh token is long-lived (7 days)
-        expire = datetime.utcnow() + timedelta(days=7)
+        expire = utc_now() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -65,28 +69,30 @@ async def get_current_reviewer(request: Request, session: Session = Depends(get_
         headers={"WWW-Authenticate": "Bearer"},
     )
     
-    # Check cookie first, then auth header
-    token = request.cookies.get("session_token")
-    if not token:
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header.split(" ")[1]
+    # Try Bearer header first, then fallback to session_token cookie
+    candidate_tokens = []
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        candidate_tokens.append(auth_header.split(" ")[1])
+    cookie_token = request.cookies.get("session_token")
+    if cookie_token and cookie_token not in candidate_tokens:
+        candidate_tokens.append(cookie_token)
             
-    if not token:
+    if not candidate_tokens:
         raise credentials_exception
 
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
+    for tok in candidate_tokens:
+        try:
+            payload = jwt.decode(tok, SECRET_KEY, algorithms=[ALGORITHM])
+            email: str = payload.get("sub")
+            if email:
+                reviewer = session.exec(select(Reviewer).where(Reviewer.email == email)).first()
+                if reviewer:
+                    return reviewer
+        except JWTError:
+            continue
         
-    reviewer = session.exec(select(Reviewer).where(Reviewer.email == email)).first()
-    if reviewer is None:
-        raise credentials_exception
-    return reviewer
+    raise credentials_exception
 
 def RequireRole(allowed_roles: list[str]):
     def role_checker(reviewer: Reviewer = Depends(get_current_reviewer)):

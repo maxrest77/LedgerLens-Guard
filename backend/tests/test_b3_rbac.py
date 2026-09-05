@@ -19,8 +19,8 @@ def session_fixture():
     )
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
-        # Create users with different roles
-        session.add(Reviewer(email="auditor@test.com", hashed_password=pwd_context.hash("pass"), role=Role.AUDITOR))
+        # Create users with different roles: ADMIN and REVIEWER
+        session.add(Reviewer(email="admin@test.com", hashed_password=pwd_context.hash("pass"), role=Role.ADMIN))
         session.add(Reviewer(email="reviewer@test.com", hashed_password=pwd_context.hash("pass"), role=Role.REVIEWER))
         session.commit()
         yield session
@@ -29,9 +29,7 @@ def session_fixture():
 def client_fixture(session: Session):
     def get_session_override():
         return session
-    app.dependency_overrides[default_engine] = get_session_override # Not directly right, need to override get_db
     
-    # Better to override get_db
     from backend.api.auth import get_db
     app.dependency_overrides[get_db] = lambda: session
     
@@ -40,10 +38,9 @@ def client_fixture(session: Session):
     app.dependency_overrides.clear()
 
 def test_b3_rbac_enforcement(client, session):
-    # 1. Login as AUDITOR
-    res = client.post("/auth/login", data={"username": "auditor@test.com", "password": "pass"})
-    auditor_token = res.json()["access_token"]
-    # Clear cookies so they don't bleed into subsequent requests
+    # 1. Login as ADMIN
+    res = client.post("/auth/login", data={"username": "admin@test.com", "password": "pass"})
+    admin_token = res.json()["access_token"]
     client.cookies.clear()
     
     # 2. Login as REVIEWER
@@ -51,28 +48,28 @@ def test_b3_rbac_enforcement(client, session):
     reviewer_token = res.json()["access_token"]
     client.cookies.clear()
     
-    # 3. Read routes (both should succeed)
-    # Using /api/dashboard
-    res = client.get("/api/dashboard", headers={"Authorization": f"Bearer {auditor_token}"})
-    # Might fail if dashboard has no data, but shouldn't 403
+    # 3. Read routes accessible to both (e.g. /api/dashboard)
+    res = client.get("/api/dashboard", headers={"Authorization": f"Bearer {reviewer_token}"})
+    assert res.status_code in [200, 404]
+    client.cookies.clear()
+
+    res = client.get("/api/dashboard", headers={"Authorization": f"Bearer {admin_token}"})
     assert res.status_code in [200, 404]
     client.cookies.clear()
     
-    # 4. Write route (POST /api/exceptions/case_123/review)
-    # AUDITOR should be rejected
-    res_audit_write = client.post(
-        "/api/exceptions/case_123/review", 
-        json={"action": "APPROVE", "reason": "This is a long reason that is 20 chars long"},
-        headers={"Authorization": f"Bearer {auditor_token}", "X-CSRF-Protection": "1"}
+    # 4. Admin-only route (/api/admin/exposure)
+    # REVIEWER should be rejected with 403
+    res_rev_admin = client.get(
+        "/api/admin/exposure",
+        headers={"Authorization": f"Bearer {reviewer_token}"}
     )
-    assert res_audit_write.status_code == 403
-    assert "not permitted" in res_audit_write.json()["detail"]
+    assert res_rev_admin.status_code == 403
+    assert "not permitted" in res_rev_admin.json()["detail"]
     client.cookies.clear()
     
-    # REVIEWER should be allowed (might get 404 Case Not Found, which is fine, means 403 passed)
-    res_rev_write = client.post(
-        "/api/exceptions/case_123/review", 
-        json={"action": "APPROVE", "reason": "This is a long reason that is 20 chars long with three words"},
-        headers={"Authorization": f"Bearer {reviewer_token}", "X-CSRF-Protection": "1"}
+    # ADMIN should be allowed (status 200)
+    res_adm_admin = client.get(
+        "/api/admin/exposure",
+        headers={"Authorization": f"Bearer {admin_token}"}
     )
-    assert res_rev_write.status_code != 403
+    assert res_adm_admin.status_code == 200

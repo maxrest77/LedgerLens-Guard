@@ -1,5 +1,6 @@
 import hashlib
 from datetime import datetime
+from backend.utils.time_utils import utc_now
 from collections import defaultdict
 from typing import List
 from sqlmodel import Session, select
@@ -46,7 +47,7 @@ def _build_case(
         explanation=generate_explanation(code, ctx),
         suggested_action=get_suggested_action(code),
         status=CaseStatus.OPEN,
-        opened_at=datetime.utcnow(),
+        opened_at=utc_now(),
     )
 
 def reconcile_batch(session: Session) -> List[ReconciliationCase]:
@@ -200,7 +201,7 @@ def reconcile_batch(session: Session) -> List[ReconciliationCase]:
             )
 
     # ── Unprocessed payments → MISSING_SETTLEMENT ────────────────────────
-    now = datetime.utcnow()
+    now = utc_now()
     for p in payments:
         if p.payment_id not in processed_payments:
             if (now - p.captured_at).days > 3:
@@ -222,13 +223,22 @@ def reconcile_batch(session: Session) -> List[ReconciliationCase]:
 
     # ── Pattern Detection & Auto-Resolution ─────────────────────────────
     
+    # Fetch active tolerance rule from DB
+    from backend.data.schema import ToleranceRule
+    rule = session.exec(
+        select(ToleranceRule)
+        .where(ToleranceRule.parameter_name == "AUTO_RESOLVE_THRESHOLD_PAISA")
+        .where(ToleranceRule.status == "ACTIVE")
+    ).first()
+    tolerance_paisa = rule.threshold_value if rule else 500
+
     # Auto-resolve small differences
     for c in new_cases:
-        if c.severity != "CRITICAL" and abs(c.delta_paisa) <= 500 and abs(c.delta_paisa) > 0:
+        if c.severity != "CRITICAL" and abs(c.delta_paisa) <= tolerance_paisa and abs(c.delta_paisa) > 0:
             c.status = CaseStatus.AUTO_RESOLVED
-            c.explanation = f"Auto-resolved due to tolerance (< ₹5). Original delta: {c.delta_paisa / 100:.2f}."
+            c.explanation = f"Auto-resolved due to tolerance (<= ₹{tolerance_paisa / 100:.2f}). Original delta: {c.delta_paisa / 100:.2f}."
             c.suggested_action = "NO_ACTION_REQUIRED"
-            c.resolved_at = datetime.utcnow()
+            c.resolved_at = utc_now()
             c.resolved_by = "system_auto_resolve"
 
     groups = defaultdict(list)
@@ -262,6 +272,13 @@ def reconcile_batch(session: Session) -> List[ReconciliationCase]:
     for c in new_cases:
         if c.status != CaseStatus.OPEN or c.delta_paisa == 0:
             generated_cases.append(c)
+
+    # Deduplicate generated_cases by case_id to ensure primary key uniqueness
+    deduped_cases = {}
+    for c in generated_cases:
+        if c.case_id not in deduped_cases:
+            deduped_cases[c.case_id] = c
+    generated_cases = list(deduped_cases.values())
 
     # ── Merge with Existing Cases (A1) ──────────────────────────────────
     final_cases = []
@@ -310,9 +327,20 @@ def reconcile_batch(session: Session) -> List[ReconciliationCase]:
             if c_new.status == CaseStatus.AUTO_RESOLVED:
                 cases_to_audit_autoresolve.append(c_new)
 
-    # Any remaining cases in existing_case_map are no longer applicable
-    for c_to_delete in existing_case_map.values():
-        session.delete(c_to_delete)
+    # Any remaining cases in existing_case_map that did not re-trigger:
+    # Preserve approved/rejected/auto-resolved cases to maintain permanent audit history.
+    # For OPEN cases, mark as AUTO_RESOLVED since the discrepancy has cleared (e.g. late credit arrived).
+    for c_remaining in existing_case_map.values():
+        if c_remaining.status == CaseStatus.OPEN:
+            c_remaining.status = CaseStatus.AUTO_RESOLVED
+            c_remaining.explanation = "Discrepancy resolved: underlying transactions now fully matched."
+            c_remaining.resolved_at = utc_now()
+            c_remaining.resolved_by = "system_auto_resolve"
+            c_remaining.delta_paisa = 0
+            final_cases.append(c_remaining)
+            cases_to_audit_autoresolve.append(c_remaining)
+        else:
+            final_cases.append(c_remaining)
 
     session.add_all(final_cases)
     session.commit()

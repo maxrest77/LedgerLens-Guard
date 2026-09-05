@@ -1,5 +1,6 @@
 import pytest
 from datetime import datetime, timedelta
+from backend.utils.time_utils import utc_now
 from sqlmodel import Session, create_engine, SQLModel
 from backend.data.schema import Payment, Settlement, SettlementPaymentLink, PaymentMethod, PaymentStatus
 from backend.engine.nowcasting import predict_settlement_delay
@@ -11,10 +12,10 @@ def test_f4_nowcasting(tmp_path):
     with Session(engine) as session:
         # Create historical late settlements for UPI
         for i in range(5):
-            captured = datetime.utcnow() - timedelta(days=10)
+            captured = utc_now() - timedelta(days=10)
             settled = captured + timedelta(days=4) # 4 days late
             
-            p = Payment(payment_id=f"p_hist_{i}", order_id="x", merchant_id="m", amount_paisa=100, payment_method=PaymentMethod.UPI, status=PaymentStatus.CAPTURED, captured_at=captured, originating_ip="ip", customer_id="c", bank_code="HDFC")
+            p = Payment(payment_id=f"p_hist_{i}", order_id="x", merchant_id="m", amount_paisa=100, payment_method=PaymentMethod.UPI, status=PaymentStatus.CAPTURED, captured_at=captured, originating_ip="ip", customer_id="c", bank_code="AURA")
             s = Settlement(settlement_id=f"s_hist_{i}", utr="u", gross_paisa=100, fee_paisa=0, tax_paisa=0, net_paisa=100, settled_at=settled)
             link = SettlementPaymentLink(settlement_id=s.settlement_id, payment_id=p.payment_id)
             
@@ -23,9 +24,9 @@ def test_f4_nowcasting(tmp_path):
             session.add(link)
             
         # Create a historical ON-TIME settlement for CREDIT_CARD
-        captured_cc = datetime.utcnow() - timedelta(days=5)
+        captured_cc = utc_now() - timedelta(days=5)
         settled_cc = captured_cc + timedelta(days=1)
-        p_cc = Payment(payment_id="p_hist_cc", order_id="x", merchant_id="m", amount_paisa=100, payment_method=PaymentMethod.CREDIT_CARD, status=PaymentStatus.CAPTURED, captured_at=captured_cc, originating_ip="ip", customer_id="c", bank_code="HDFC")
+        p_cc = Payment(payment_id="p_hist_cc", order_id="x", merchant_id="m", amount_paisa=100, payment_method=PaymentMethod.CREDIT_CARD, status=PaymentStatus.CAPTURED, captured_at=captured_cc, originating_ip="ip", customer_id="c", bank_code="AURA")
         s_cc = Settlement(settlement_id="s_hist_cc", utr="u", gross_paisa=100, fee_paisa=0, tax_paisa=0, net_paisa=100, settled_at=settled_cc)
         link_cc = SettlementPaymentLink(settlement_id=s_cc.settlement_id, payment_id=p_cc.payment_id)
         
@@ -36,7 +37,7 @@ def test_f4_nowcasting(tmp_path):
         session.commit()
         
         # Now predict for a new UPI payment
-        new_upi = Payment(payment_id="p_new_upi", order_id="x", merchant_id="m", amount_paisa=100, payment_method=PaymentMethod.UPI, status=PaymentStatus.CAPTURED, captured_at=datetime.utcnow(), originating_ip="ip", customer_id="c", bank_code="HDFC")
+        new_upi = Payment(payment_id="p_new_upi", order_id="x", merchant_id="m", amount_paisa=100, payment_method=PaymentMethod.UPI, status=PaymentStatus.CAPTURED, captured_at=utc_now(), originating_ip="ip", customer_id="c", bank_code="AURA")
         
         forecast = predict_settlement_delay(new_upi, session)
         assert forecast["forecast_available"] is True
@@ -45,7 +46,7 @@ def test_f4_nowcasting(tmp_path):
         assert "FORECAST: 100.0% probability of being late" in forecast["message"]
         
         # Predict for new CC payment
-        new_cc = Payment(payment_id="p_new_cc", order_id="x", merchant_id="m", amount_paisa=100, payment_method=PaymentMethod.CREDIT_CARD, status=PaymentStatus.CAPTURED, captured_at=datetime.utcnow(), originating_ip="ip", customer_id="c", bank_code="HDFC")
+        new_cc = Payment(payment_id="p_new_cc", order_id="x", merchant_id="m", amount_paisa=100, payment_method=PaymentMethod.CREDIT_CARD, status=PaymentStatus.CAPTURED, captured_at=utc_now(), originating_ip="ip", customer_id="c", bank_code="AURA")
         forecast_cc = predict_settlement_delay(new_cc, session)
         assert forecast_cc["forecast_available"] is True
         assert forecast_cc["probability_late"] == 0.0

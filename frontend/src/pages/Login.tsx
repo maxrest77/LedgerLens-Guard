@@ -13,7 +13,6 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
-  const setToken = useAuthStore((state) => state.setToken)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,14 +24,73 @@ export default function Login() {
       formData.append('password', password)
 
       const res = await api.post('/auth/login', formData, {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
       })
 
-      setToken(res.data.access_token)
+      const accessToken = res.data.access_token
+      if (accessToken) {
+        localStorage.setItem('access_token', accessToken)
+      }
+
+      const userRole = res.data.role || 'REVIEWER'
+      useAuthStore.getState().setReviewer({
+        email: res.data.email || username,
+        role: userRole,
+        portfolio_id: res.data.portfolio_id
+      }, accessToken)
+
       toast.success('Login successful')
-      navigate('/dashboard')
+
+      if (userRole === 'ADMIN') {
+        navigate('/command-center', { replace: true })
+      } else {
+        navigate('/dashboard', { replace: true })
+      }
     } catch (err: any) {
       toast.error(err.response?.data?.detail || 'Login failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const instantLogin = async (demoEmail: string, demoPass: string) => {
+    setUsername(demoEmail)
+    setPassword(demoPass)
+    setLoading(true)
+    try {
+      const formData = new URLSearchParams()
+      formData.append('username', demoEmail)
+      formData.append('password', demoPass)
+
+      const res = await api.post('/auth/login', formData, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      })
+
+      const accessToken = res.data.access_token
+      if (accessToken) {
+        localStorage.setItem('access_token', accessToken)
+      }
+
+      const userRole = res.data.role || 'REVIEWER'
+      useAuthStore.getState().setReviewer({
+        email: res.data.email || demoEmail,
+        role: userRole,
+        portfolio_id: res.data.portfolio_id
+      }, accessToken)
+
+      toast.success(`Signed in as ${userRole === 'ADMIN' ? 'Admin / Controller' : 'Reviewer / Maker'}`)
+
+      if (userRole === 'ADMIN') {
+        navigate('/command-center', { replace: true })
+      } else {
+        navigate('/dashboard', { replace: true })
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || 'Demo login failed')
     } finally {
       setLoading(false)
     }
@@ -46,7 +104,7 @@ export default function Login() {
         </Button>
       </div>
 
-      <div className="w-full max-w-[400px] p-4">
+      <div className="w-full max-w-[420px] p-4">
         <div className="flex flex-col items-center justify-center mb-8">
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2 text-foreground">
             <span className="text-destructive font-mono">_</span>
@@ -91,13 +149,39 @@ export default function Login() {
           </CardContent>
         </Card>
 
-        {import.meta.env.VITE_DEMO_MODE === 'true' && (
-          <div className="mt-8 text-center text-[11px] text-muted-foreground font-mono bg-secondary/50 p-4 rounded-xl border border-subtle">
-            <p className="font-semibold text-foreground mb-1">DEMO CREDENTIALS</p>
-            <p>Email: <span className="text-foreground">reviewer@ledgerlens.dev</span></p>
-            <p>Password: <span className="text-foreground">demo_reviewer_2024</span></p>
+        {/* Quick Demo Credentials for Fintech Operations */}
+        <div className="mt-6 text-center text-xs text-muted-foreground font-mono bg-white/80 backdrop-blur-md p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-center gap-1.5 mb-2.5">
+            <span className="font-semibold text-slate-900 text-[11px] uppercase tracking-wider">Instant 1-Click Demo Access</span>
+            <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-700 font-bold">Judges</span>
           </div>
-        )}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => instantLogin('admin@ledgerlens.dev', 'demo_admin_2024')}
+              disabled={loading}
+              className="px-2.5 py-2 text-left rounded-lg border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 transition-all text-indigo-950 cursor-pointer shadow-xs active:scale-98"
+            >
+              <div className="font-bold text-[11px] flex items-center justify-between">
+                Admin / Controller
+                <span className="text-[9px] font-normal text-indigo-600">Click →</span>
+              </div>
+              <div className="text-[10px] text-indigo-600 truncate">admin@ledgerlens.dev</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => instantLogin('reviewer@ledgerlens.dev', 'demo_reviewer_2024')}
+              disabled={loading}
+              className="px-2.5 py-2 text-left rounded-lg border border-sky-200 bg-sky-50/70 hover:bg-sky-100 transition-all text-sky-950 cursor-pointer shadow-xs active:scale-98"
+            >
+              <div className="font-bold text-[11px] flex items-center justify-between">
+                Reviewer / Maker
+                <span className="text-[9px] font-normal text-sky-600">Click →</span>
+              </div>
+              <div className="text-[10px] text-sky-600 truncate">reviewer@ledgerlens.dev</div>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

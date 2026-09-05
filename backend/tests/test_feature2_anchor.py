@@ -1,37 +1,44 @@
 import os
 import pytest
+from unittest.mock import MagicMock
 from sqlmodel import Session, create_engine, SQLModel
 from backend.audit.chain import AuditBlock
-from backend.jobs.anchoring import anchor_latest_block, write_to_worm_storage
-from backend.scripts.verify_anchor import verify_against_anchor
+from backend.data.schema import ChainAnchor
+from backend.jobs.anchoring import anchor_latest_block, verify_anchors
 
-def test_feature2_external_anchor(tmp_path, monkeypatch):
-    # Override WORM path to tmp_path
-    def mock_write(hash_value, timestamp):
-        anchor_file = tmp_path / "anchor_log.txt"
-        with open(anchor_file, "a") as f:
-            f.write(f"{timestamp},{hash_value}\n")
-            
-    monkeypatch.setattr("backend.jobs.anchoring.write_to_worm_storage", mock_write)
+class MockResponse:
+    def __init__(self, json_data, status_code):
+        self.json_data = json_data
+        self.status_code = status_code
+    def json(self):
+        return self.json_data
+    def raise_for_status(self):
+        pass
+
+def test_feature2_external_anchor(monkeypatch, tmp_path):
+    monkeypatch.setenv("GITHUB_TOKEN", "fake_token")
     
-    # Override the path that verify_anchor reads from
-    def mock_verify():
-        anchor_file = tmp_path / "anchor_log.txt"
-        anchors = []
-        with open(anchor_file, "r") as f:
-            for line in f:
-                if line.strip():
-                    ts, h = line.strip().split(",")
-                    anchors.append({"timestamp": ts, "hash": h})
+    def mock_post(url, **kwargs):
+        return MockResponse({"html_url": "https://gist.github.com/fake_gist"}, 200)
         
-        # We need an engine, let's use the actual default engine logic but override the DB logic inside our test
-        return anchors
+    def mock_run(args, **kwargs):
+        class CompletedProcess:
+            def __init__(self):
+                self.returncode = 0
+                self.stdout = b""
+        if "stamp" in args:
+            # write a fake .ots file
+            temp_path = args[2]
+            with open(temp_path + ".ots", "wb") as f:
+                f.write(b"fake_ots_blob")
+        return CompletedProcess()
+        
+    monkeypatch.setattr("httpx.post", mock_post)
+    monkeypatch.setattr("subprocess.run", mock_run)
     
-    # We will test the core components since we're injecting mocks
     engine = create_engine(f"sqlite:///{tmp_path}/test_f2.db", connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(engine)
     
-    # Create a block
     with Session(engine) as session:
         session.add(AuditBlock(
             index=1,
@@ -45,49 +52,76 @@ def test_feature2_external_anchor(tmp_path, monkeypatch):
         ))
         session.commit()
     
-    # Run anchor job (monkeypatch engine inside anchoring)
     monkeypatch.setattr("backend.jobs.anchoring.engine", engine)
     anchor_latest_block()
     
-    assert (tmp_path / "anchor_log.txt").exists()
-    
-    # Verify
-    monkeypatch.setattr("backend.scripts.verify_anchor.engine", engine)
-    monkeypatch.setattr("os.path.dirname", lambda x: str(tmp_path))
-    
-    # Instead of monkeypatching dirname heavily, let's just monkeypatch the file path variable if possible
-    # Wait, the script has it hardcoded, I'll just write it to the actual WORM directory in the test and clean up,
-    # or I can just modify the script to take a path.
-    pass
+    # Verify DB got the records
+    with Session(engine) as session:
+        from sqlmodel import select
+        anchor = session.exec(select(ChainAnchor)).first()
+        assert anchor is not None
+        assert anchor.chain_hash == "test_hash_1"
+        assert anchor.ots_proof_blob == b"fake_ots_blob"
+        assert anchor.gist_url == "https://gist.github.com/fake_gist"
+        assert anchor.status == "PENDING"
 
-def test_verify_anchor_logic(tmp_path, monkeypatch):
-    # Let's adjust verify_anchor to accept an optional file path
-    import backend.scripts.verify_anchor as va
+def test_verify_anchor_logic(monkeypatch, tmp_path):
+    monkeypatch.setenv("GITHUB_TOKEN", "fake_token")
     
-    anchor_file = tmp_path / "anchor_log.txt"
-    with open(anchor_file, "w") as f:
-        f.write("2026-01-01,fake_hash_1\n")
-        
+    # We will test two scenarios: match and mismatch
+    def mock_get_match(url, **kwargs):
+        return MockResponse({"files": {"anchor.txt": {"content": "Timestamp: 123\nChain Hash: fake_hash_1"}}}, 200)
+    
+    def mock_run_verify(args, **kwargs):
+        class CompletedProcess:
+            def __init__(self):
+                self.returncode = 0
+                self.stdout = b"Success"
+        if "upgrade" in args:
+            ots_path = args[2]
+            with open(ots_path, "wb") as f:
+                f.write(b"upgraded_blob")
+        return CompletedProcess()
+
+    monkeypatch.setattr("httpx.get", mock_get_match)
+    monkeypatch.setattr("subprocess.run", mock_run_verify)
+    
     engine = create_engine(f"sqlite:///{tmp_path}/test_f2_verify.db", connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(engine)
+    monkeypatch.setattr("backend.jobs.anchoring.engine", engine)
     
-    monkeypatch.setattr(va, "engine", engine)
-    
-    # Should fail because fake_hash_1 isn't in DB
-    assert va.verify_against_anchor(anchor_file_override=str(anchor_file)) is False
-    
-    # Add it
     with Session(engine) as session:
-        session.add(AuditBlock(
-            index=1,
-            case_id="c",
-            reviewer="r",
-            action="a",
-            reason="r",
-            payload_snapshot="p",
-            previous_hash="p",
-            block_hash="fake_hash_1"
-        ))
+        session.add(AuditBlock(index=1, case_id="c", reviewer="r", action="a", reason="r", payload_snapshot="p", previous_hash="p", block_hash="fake_hash_1"))
+        session.add(ChainAnchor(block_index=1, chain_hash="fake_hash_1", ots_proof_blob=b"blob", gist_url="https://gist.github.com/fake", status="PENDING"))
         session.commit()
         
-    assert va.verify_against_anchor(anchor_file_override=str(anchor_file)) is True
+    assert verify_anchors() is True
+    
+    # Check if upgraded
+    with Session(engine) as session:
+        import sqlmodel
+        anchor = session.exec(sqlmodel.select(ChainAnchor)).first()
+        assert anchor.status == "CONFIRMED"
+        assert anchor.ots_proof_blob == b"upgraded_blob"
+
+    # Now test mismatch
+    def mock_get_mismatch(url, **kwargs):
+        return MockResponse({"files": {"anchor.txt": {"content": "Timestamp: 123\nChain Hash: tampered_hash"}}}, 200)
+        
+    def mock_run_fail(args, **kwargs):
+        class CompletedProcess:
+            def __init__(self):
+                self.returncode = 1
+        return CompletedProcess()
+
+    monkeypatch.setattr("httpx.get", mock_get_mismatch)
+    monkeypatch.setattr("subprocess.run", mock_run_fail)
+    
+    # Mismatch check is a bit manual, it logs CRITICAL but returns True overall because it continues
+    # We will mock logger.critical to assert it's called
+    mock_logger = MagicMock()
+    monkeypatch.setattr("backend.jobs.anchoring.logger", mock_logger)
+    
+    verify_anchors()
+    
+    assert mock_logger.critical.call_count >= 2 # one for gist mismatch, one for ots failure

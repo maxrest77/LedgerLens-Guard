@@ -7,6 +7,15 @@ export function formatPaisa(paisa: number): string {
   })}`
 }
 
+export function formatINR(rupees: number): string {
+  const sign = rupees < 0 ? '-' : ''
+  const abs = Math.abs(rupees)
+  return `${sign}₹${abs.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
+}
+
 export function formatDateTime(isoString: string): string {
   if (!isoString) return 'N/A'
   const date = new Date(isoString)

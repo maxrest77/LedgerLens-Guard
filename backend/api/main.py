@@ -10,10 +10,22 @@ from backend.db.init import engine
 from backend.audit.chain import verify_chain
 
 from backend.api.routes import (
-    auth_routes, dashboard, reconciliation, exceptions, reviewer, audit, webhooks, export
+    auth_routes, dashboard, reconciliation, exceptions, reviewer, audit, webhooks, export, admin, evidence, vault_share, analytics,
+    compliance as compliance_routes, copilot
 )
 
+from backend.config import settings, validate_settings
+from backend.utils.structured_logger import setup_logging
+from backend.api.middleware.correlation import CorrelationIdMiddleware
+
+validate_settings()
+setup_logging(log_format=settings.LOG_FORMAT)
+
+from backend.api.compliance import enforce_data_localization, enforce_security_configuration
+enforce_data_localization()
+enforce_security_configuration()
 app = FastAPI(title="LedgerLens Guard API")
+
 
 # --- SYSTEM LOCKDOWN STATE ---
 class SystemState:
@@ -50,6 +62,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
         response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'"
+        # BFCache / Auth Bypass Mitigation
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
         return response
 
 # Middleware order matters! Lockdown is added FIRST so it becomes the INNER layer.
@@ -59,12 +75,35 @@ from backend.api.middleware.rate_limit import RateLimitMiddleware
 app.add_middleware(RateLimitMiddleware, max_requests=5, window_seconds=60)
 app.add_middleware(LockdownMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(CorrelationIdMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv("ALLOWED_ORIGINS", "http://localhost:5173")],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_origin_regex=r"^https://.*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["Authorization", "Content-Type", "X-CSRF-Protection"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "X-CSRF-Protection",
+        "Idempotency-Key",
+        "X-Requested-With",
+        "Accept",
+        "X-Correlation-ID",
+        "X-Request-ID",
+        "X-Auth-Transport",
+    ],
+    expose_headers=[
+        "Content-Disposition",
+        "Content-Length",
+        "Content-Type",
+        "X-Correlation-ID",
+    ],
 )
 
 # --- AUTO-VERIFY DAEMON ---
@@ -101,6 +140,7 @@ async def auto_verify_daemon():
                             reason=f"Consecutive integrity verification failures starting at block {tampered_idx}",
                             payload_snapshot={"tampered_index": tampered_idx}
                         )
+                        session.commit()
                 else:
                     if SystemState.strike_count > 0:
                         SystemState.strike_count = 0
@@ -125,6 +165,13 @@ app.include_router(reconciliation.router, prefix="/api", tags=["Reconciliation"]
 app.include_router(exceptions.router, prefix="/api", tags=["Exceptions"])
 app.include_router(reviewer.router, prefix="/api", tags=["Reviewer"])
 app.include_router(audit.router, prefix="/api", tags=["Audit"])
+app.include_router(admin.router, prefix="/api", tags=["Admin"])
 app.include_router(export.router, prefix="/export", tags=["Export"])
 app.include_router(webhooks.router, prefix="/webhooks", tags=["Webhooks"])
+app.include_router(evidence.router, prefix="/api", tags=["Evidence"])
+app.include_router(vault_share.router, prefix="/api/vault/share", tags=["Vault Share"])
+app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
+app.include_router(compliance_routes.router, prefix="/api/compliance", tags=["Compliance"])
+app.include_router(compliance_routes.router, prefix="/compliance", tags=["Compliance"])
+app.include_router(copilot.router, prefix="/api", tags=["AI Finance Controller Copilot"])
 

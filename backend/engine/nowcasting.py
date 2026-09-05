@@ -4,12 +4,12 @@ from backend.data.schema import Payment, Settlement, SettlementPaymentLink
 
 def predict_settlement_delay(payment: Payment, session: Session) -> dict:
     """
-    Settlement Nowcasting: 
-    Predicts the probability of a settlement being late or short based on historical
-    latency patterns for the same payment method and bank code.
+    Settlement Nowcasting (Historical Percentile / Frequency Estimator):
+    Computes an empirical delay ratio based on historical latency distributions
+    for the same payment method and bank code.
     
-    Returns a probabilistic forecast (e.g., 85% likely to be late by 2 days).
-    This is purely a forecast and does not mutate deterministic state.
+    Returns an empirical frequency estimate (e.g. 85% delay likelihood based on historical batches).
+    This is an advisory heuristic and does not mutate deterministic state.
     """
     # Grab historical settlements for this payment method
     # Since we can't do complex joins easily in this mock, we'll fetch linked payments

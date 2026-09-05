@@ -1,5 +1,6 @@
 import pytest
 from datetime import datetime, timedelta
+from backend.utils.time_utils import utc_now
 from sqlmodel import Session, create_engine, SQLModel
 from backend.audit.chain import AuditBlock
 from backend.data.schema import ReconciliationCase
@@ -11,15 +12,15 @@ def test_f6_insider_risk(tmp_path):
     
     with Session(engine) as session:
         # Create some cases opened 2 seconds before the blocks
-        opened = datetime.utcnow() - timedelta(seconds=2)
+        opened = utc_now() - timedelta(seconds=2)
         
         session.add(ReconciliationCase(case_id="c1", exception_code="X", severity="HIGH", expected_paisa=0, actual_paisa=0, delta_paisa=0, confidence_score=0, explanation="", suggested_action="", opened_at=opened))
         session.add(ReconciliationCase(case_id="c2", exception_code="X", severity="HIGH", expected_paisa=0, actual_paisa=0, delta_paisa=0, confidence_score=0, explanation="", suggested_action="", opened_at=opened))
         session.add(ReconciliationCase(case_id="c3", exception_code="X", severity="HIGH", expected_paisa=0, actual_paisa=0, delta_paisa=0, confidence_score=0, explanation="", suggested_action="", opened_at=opened))
         
-        session.add(ReconciliationCase(case_id="c4", exception_code="X", severity="HIGH", expected_paisa=0, actual_paisa=0, delta_paisa=0, confidence_score=0, explanation="", suggested_action="", opened_at=datetime.utcnow() - timedelta(minutes=5)))
-        session.add(ReconciliationCase(case_id="c5", exception_code="X", severity="HIGH", expected_paisa=0, actual_paisa=0, delta_paisa=0, confidence_score=0, explanation="", suggested_action="", opened_at=datetime.utcnow() - timedelta(minutes=5)))
-        session.add(ReconciliationCase(case_id="c6", exception_code="X", severity="HIGH", expected_paisa=0, actual_paisa=0, delta_paisa=0, confidence_score=0, explanation="", suggested_action="", opened_at=datetime.utcnow() - timedelta(minutes=5)))
+        session.add(ReconciliationCase(case_id="c4", exception_code="X", severity="HIGH", expected_paisa=0, actual_paisa=0, delta_paisa=0, confidence_score=0, explanation="", suggested_action="", opened_at=utc_now() - timedelta(minutes=5)))
+        session.add(ReconciliationCase(case_id="c5", exception_code="X", severity="HIGH", expected_paisa=0, actual_paisa=0, delta_paisa=0, confidence_score=0, explanation="", suggested_action="", opened_at=utc_now() - timedelta(minutes=5)))
+        session.add(ReconciliationCase(case_id="c6", exception_code="X", severity="HIGH", expected_paisa=0, actual_paisa=0, delta_paisa=0, confidence_score=0, explanation="", suggested_action="", opened_at=utc_now() - timedelta(minutes=5)))
         session.commit()
         
         # Synthetic fast approver (rubber stamp + fast)
@@ -33,7 +34,7 @@ def test_f6_insider_risk(tmp_path):
                 payload_snapshot="{}",
                 previous_hash="0",
                 block_hash="0",
-                timestamp=datetime.utcnow().isoformat()
+                timestamp=utc_now().isoformat()
             ))
             
         # Normal reviewer (longer time, varied actions)
@@ -47,7 +48,7 @@ def test_f6_insider_risk(tmp_path):
                 payload_snapshot="{}",
                 previous_hash="0",
                 block_hash="0",
-                timestamp=datetime.utcnow().isoformat()
+                timestamp=utc_now().isoformat()
             ))
             
         session.commit()

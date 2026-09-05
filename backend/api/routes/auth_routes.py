@@ -8,18 +8,24 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
+from typing import Optional
+from fastapi import Request, Response
+
 class Token(BaseModel):
-    access_token: str
+    access_token: Optional[str] = None
     token_type: str
+    role: Optional[str] = None
+    email: Optional[str] = None
+    portfolio_id: Optional[str] = None
 
 class ReviewerProfile(BaseModel):
     email: str
     role: str
-
-from fastapi import Response
+    portfolio_id: Optional[str] = None
 
 @router.post("/login", response_model=Token)
 async def login_for_access_token(
+    request: Request,
     response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     session: Session = Depends(get_db)
@@ -32,7 +38,8 @@ async def login_for_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
     from backend.data.schema import RefreshToken
-    from datetime import datetime, timedelta
+    from datetime import timedelta
+    from backend.utils.time_utils import utc_now
     from backend.api.auth import create_refresh_token
     
     access_token = create_access_token(data={"sub": reviewer.email})
@@ -42,19 +49,22 @@ async def login_for_access_token(
     db_token = RefreshToken(
         token=refresh_token,
         reviewer_email=reviewer.email,
-        expires_at=datetime.utcnow() + timedelta(days=7)
+        expires_at=utc_now() + timedelta(days=7)
     )
     session.add(db_token)
     session.commit()
     
     is_production = os.getenv("ENV", "development") != "development"
     
+    # Session cookies are strictly SameSite=Strict to prevent CSRF.
+    # Secure flag is enabled in production (HTTPS). In local dev (HTTP), secure is False.
+    # No external OAuth/cross-site redirect flows require Lax; Strict provides defense-in-depth.
     response.set_cookie(
         key="session_token",
         value=access_token,
         httponly=True,
         secure=is_production,
-        samesite="strict" if is_production else "lax",
+        samesite="strict",
         max_age=15 * 60  # 15 mins
     )
     response.set_cookie(
@@ -62,15 +72,33 @@ async def login_for_access_token(
         value=refresh_token,
         httponly=True,
         secure=is_production,
-        samesite="strict" if is_production else "lax",
+        samesite="strict",
         max_age=7 * 24 * 3600  # 7 days
     )
     
-    return {"access_token": access_token, "token_type": "bearer"}
+    role_str = reviewer.role.value if hasattr(reviewer.role, "value") else str(reviewer.role)
+    cookie_mode = (
+        request.headers.get("X-Auth-Transport") == "cookie" or
+        request.headers.get("X-Auth-Mode") == "cookie" or
+        request.query_params.get("transport") == "cookie"
+    )
+
+    return {
+        "access_token": None if cookie_mode else access_token,
+        "token_type": "cookie" if cookie_mode else "bearer",
+        "role": role_str,
+        "email": reviewer.email,
+        "portfolio_id": reviewer.portfolio_id
+    }
 
 @router.get("/me", response_model=ReviewerProfile)
 async def read_users_me(current_reviewer: Reviewer = Depends(get_current_reviewer)):
-    return ReviewerProfile(email=current_reviewer.email, role=current_reviewer.role)
+    role_str = current_reviewer.role.value if hasattr(current_reviewer.role, "value") else str(current_reviewer.role)
+    return ReviewerProfile(
+        email=current_reviewer.email,
+        role=role_str,
+        portfolio_id=current_reviewer.portfolio_id
+    )
 
 from fastapi import Request
 from jose import jwt, JWTError
@@ -105,7 +133,7 @@ async def refresh_token(request: Request, response: Response, session: Session =
         value=new_access_token,
         httponly=True,
         secure=is_production,
-        samesite="strict" if is_production else "lax",
+        samesite="strict",
         max_age=15 * 60
     )
     return {"access_token": new_access_token, "token_type": "bearer"}
@@ -121,6 +149,7 @@ async def logout(request: Request, response: Response, session: Session = Depend
             session.add(db_token)
             session.commit()
             
-    response.delete_cookie("session_token")
-    response.delete_cookie("refresh_token")
+    is_production = os.getenv("ENV", "development") != "development"
+    response.delete_cookie(key="session_token", path="/", httponly=True, secure=is_production, samesite="strict")
+    response.delete_cookie(key="refresh_token", path="/", httponly=True, secure=is_production, samesite="strict")
     return {"detail": "Logged out successfully"}

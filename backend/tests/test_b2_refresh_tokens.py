@@ -38,12 +38,12 @@ def test_b2_refresh_and_logout(client, engine):
     assert "refresh_token" in cookies
     
     # 2. Refresh Token
-    res2 = client.post("/auth/refresh", headers={"X-CSRF-Protection": "1"})
+    res2 = client.post("/auth/refresh", headers={"X-CSRF-Protection": "1", "Idempotency-Key": "575d62a8-38f1-4a04-86c0-fd5f6fc0064d"})
     assert res2.status_code == 200
     assert "access_token" in res2.json()
     
     # 3. Logout
-    res3 = client.post("/auth/logout", headers={"X-CSRF-Protection": "1"})
+    res3 = client.post("/auth/logout", headers={"X-CSRF-Protection": "1", "Idempotency-Key": "11a9b7e2-4de5-45c8-a4dd-287b2efe8617"})
     assert res3.status_code == 200
     
     # Verify cookies deleted
@@ -55,5 +55,5 @@ def test_b2_refresh_and_logout(client, engine):
         assert rt.revoked is True
         
     # 4. Refresh should now fail
-    res4 = client.post("/auth/refresh", headers={"X-CSRF-Protection": "1"})
+    res4 = client.post("/auth/refresh", headers={"X-CSRF-Protection": "1", "Idempotency-Key": "18f17af0-4fa3-4fc4-8924-b79b65496a1d"})
     assert res4.status_code == 401

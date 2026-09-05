@@ -1,5 +1,6 @@
 from typing import List, Optional
 from datetime import datetime
+from backend.utils.time_utils import utc_now
 from backend.data.schema import Payment, Refund, Settlement, BankEntry, Adjustment
 from backend.engine.fee_table import calculate_fee_paisa, calculate_tax_paisa
 
@@ -20,15 +21,14 @@ def classify_exceptions(
     session = None
 ) -> List[ExceptionDetection]:
     """
-    Evaluates a settlement batch against the 12 rule codes.
-    Returns a list of ExceptionDetection objects.
+    Classifies discrepancies between Settlement, BankEntry, and child Payments.
     """
     exceptions = []
     
     # 1. MISSING_SETTLEMENT
     if not settlement and payments:
         # Check if any payment is older than 3 days
-        now = datetime.utcnow()
+        now = utc_now()
         for p in payments:
             if (now - p.captured_at).days > 3:
                 exceptions.append(ExceptionDetection("MISSING_SETTLEMENT", "HIGH", p.amount_paisa, 0))

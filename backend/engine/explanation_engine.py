@@ -35,7 +35,7 @@ EXPLANATION_TEMPLATES = {
     ),
     "FEE_RATE_MISMATCH": (
         "Settlement {settlement_id} calculated expected fee of {fee}, "
-        "but Razorpay reported a different fee amount (Delta: {delta}). "
+        "but VelocePay reported a different fee amount (Delta: {delta}). "
         "Suggested action: {suggested_action}."
     ),
     "TAX_MISMATCH": (
@@ -60,7 +60,7 @@ EXPLANATION_TEMPLATES = {
         "Suggested action: {suggested_action}."
     ),
     "SETTLEMENT_ON_HOLD": (
-        "Settlement {settlement_id} (UTR: {utr}) is flagged as on_hold by Razorpay. "
+        "Settlement {settlement_id} (UTR: {utr}) is flagged as on_hold by VelocePay. "
         "Suggested action: {suggested_action}."
     ),
     "PARTIAL_REFUND_LEDGER_GAP": (
@@ -74,12 +74,12 @@ EXPLANATION_TEMPLATES = {
 }
 
 SUGGESTED_ACTIONS = {
-    "SYSTEMATIC_FEE_DEVIATION":  "AUTO_ESCALATE_TO_RAZORPAY - file bulk dispute",
+    "SYSTEMATIC_FEE_DEVIATION":  "AUTO_ESCALATE_TO_VELOCEPAY - file bulk dispute",
     "BANK_CREDIT_SHORTFALL":     "WAIT_FOR_BANK_POSTING or REQUEST_BANK_SWIFT_CONFIRMATION",
     "BANK_CREDIT_EXCESS":        "REVIEW_FOR_MISTAKEN_CREDIT",
     "MISSING_BANK_CREDIT":       "CONTACT_BANK — UTR not found within 3 business days",
-    "MISSING_SETTLEMENT":        "CHECK_RAZORPAY_DASHBOARD — payment may be on hold",
-    "FEE_RATE_MISMATCH":         "REQUEST_RAZORPAY_INVOICE — verify MDR rate agreement",
+    "MISSING_SETTLEMENT":        "CHECK_VELOCEPAY_DASHBOARD — payment may be on hold",
+    "FEE_RATE_MISMATCH":         "REQUEST_VELOCEPAY_INVOICE — verify MDR rate agreement",
     "TAX_MISMATCH":              "CHECK_GST_CONFIGURATION",
     "DUPLICATE_UTR":             "ESCALATE_TO_FINANCE — potential double-credit risk",
     "REFUND_WITHOUT_PAYMENT":    "ESCALATE_TO_FINANCE — critical data integrity issue",

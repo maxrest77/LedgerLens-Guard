@@ -12,15 +12,16 @@ def generate_cases_csv(cases: List[ReconciliationCase]) -> io.StringIO:
     
     # Write header
     writer.writerow([
-        "case_id", "status", "severity", "exception_code",
+        "case_id", "portfolio_id", "status", "severity", "exception_code",
         "settlement_id", "utr", "payment_id", 
         "expected_paisa", "actual_paisa", "delta_paisa", 
-        "confidence_score", "opened_at", "resolved_at", "resolved_by"
+        "confidence_score", "opened_at", "resolved_at", "resolved_by", "co_reviewer_email"
     ])
     
     for c in cases:
         writer.writerow([
             c.case_id,
+            getattr(c, "portfolio_id", "GLOBAL"),
             c.status.value,
             c.severity,
             c.exception_code,
@@ -33,7 +34,8 @@ def generate_cases_csv(cases: List[ReconciliationCase]) -> io.StringIO:
             f"{c.confidence_score:.2f}",
             c.opened_at.isoformat() if c.opened_at else "",
             c.resolved_at.isoformat() if c.resolved_at else "",
-            c.resolved_by or ""
+            c.resolved_by or "",
+            getattr(c, "co_reviewer_email", "") or ""
         ])
         
     output.seek(0)

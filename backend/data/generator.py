@@ -25,8 +25,9 @@ def _date_for_day(day_index: int) -> datetime:
     return BASE_DATE + timedelta(days=day_index)
 
 
-def _create_payment(day_index: int, amount_paisa: int | None = None, method: PaymentMethod | None = None) -> Payment:
-    pid = f"pay_{uuid.uuid4().hex[:12]}"
+def _create_payment(day_index: int, amount_paisa: int | None = None, method: PaymentMethod | None = None, psp_provider: str = "VELOCEPAY") -> Payment:
+    prefix = "clst" if psp_provider == "CLEARSETTLE" else ("pris" if psp_provider == "PRISMPAY" else ("stra" if psp_provider == "STRATAPAY" else psp_provider[:4].lower()))
+    pid = f"pay_{prefix}_{uuid.uuid4().hex[:10]}" if psp_provider != "VELOCEPAY" else f"pay_{uuid.uuid4().hex[:12]}"
     amt = amount_paisa or random.randint(10_000, 5_000_000)  # ₹100 – ₹50,000
     meth = method or random.choice(list(PaymentMethod))
 
@@ -46,12 +47,14 @@ def _create_payment(day_index: int, amount_paisa: int | None = None, method: Pay
         captured_at=_date_for_day(day_index) + timedelta(hours=random.randint(0, 23), minutes=random.randint(0, 59)),
         originating_ip=encrypt_pii(ip),
         customer_id=encrypt_pii(f"cust_{uuid.uuid4().hex[:8]}"),
-        bank_code=random.choice(["HDFC", "ICIC", "SBIN", "UTIB"]),
+        bank_code=random.choice(["AURA", "APEX", "STBK", "NOVA"]),
+        psp_provider=psp_provider,
     )
 
 
 def generate_dataset(
     seed: int = SEED,
+    psp_provider: str = "VELOCEPAY",
 ) -> Tuple[List[Payment], List[Refund], List[Settlement], List[SettlementPaymentLink], List[BankEntry], List[Adjustment]]:
     """
     Generate a reproducible 400-record synthetic dataset.
@@ -75,7 +78,7 @@ def generate_dataset(
     day_distribution = [15] * 7 + [60, 60] + [25]
     for day, count in enumerate(day_distribution, start=1):
         for _ in range(count):
-            payments.append(_create_payment(day))
+            payments.append(_create_payment(day, psp_provider=psp_provider))
 
     # ── 2. Refunds (40) ─────────────────────────────────────────────────
     refund_targets = random.sample(payments, 40)
@@ -114,8 +117,9 @@ def generate_dataset(
             break
 
         settlement_num += 1
-        setl_id = f"setl_{settlement_num:05d}"
-        utr = f"HDFC202608{settlement_num:08d}"
+        prefix = "CLST" if psp_provider == "CLEARSETTLE" else ("PRIS" if psp_provider == "PRISMPAY" else ("STRA" if psp_provider == "STRATAPAY" else psp_provider[:4].upper()))
+        setl_id = f"setl_{settlement_num:05d}" if psp_provider == "VELOCEPAY" else f"setl_{prefix.lower()}_{settlement_num:04d}"
+        utr = f"AURA202608{settlement_num:08d}" if psp_provider == "VELOCEPAY" else f"{prefix}2608{settlement_num:08d}"
 
         gross = 0
         fee = 0
@@ -147,6 +151,7 @@ def generate_dataset(
                 net_paisa=net,
                 settled_at=settled_date,
                 on_hold=on_hold,
+                psp_provider=psp_provider,
             )
         )
 
@@ -169,7 +174,7 @@ def generate_dataset(
                 utr=utr,
                 amount_paisa=bank_amount,
                 value_date=settled_date.date() + timedelta(days=1),
-                description="NEFT/RAZORPAY SETTLEMENT",
+                description=f"NEFT/{psp_provider} SETTLEMENT",
                 bank_reference=f"REF{uuid.uuid4().hex[:8].upper()}",
             )
         )
@@ -188,14 +193,98 @@ def generate_dataset(
 
     # ── 4. Adjustments (10) ──────────────────────────────────────────────
     for i in range(min(10, len(settlements))):
+        # Seed ADJUSTMENT_UNMATCHED (2 instances) referencing a non-existent settlement
+        setl_id = f"setl_phantom_{uuid.uuid4().hex[:8]}" if i in (0, 1) else settlements[i].settlement_id
         adjustments.append(
             Adjustment(
                 adjustment_id=f"adj_{uuid.uuid4().hex[:8]}",
-                settlement_id=settlements[i].settlement_id,
+                settlement_id=setl_id,
                 type=AdjustmentType.TDS if i % 2 == 0 else AdjustmentType.CHARGEBACK,
                 amount_paisa=random.randint(5_000, 20_000),
                 reason="TDS Deduction" if i % 2 == 0 else "Customer Chargeback",
                 created_at=settlements[i].settled_at,
+            )
+        )
+
+    return payments, refunds, settlements, links, bank_entries, adjustments
+
+
+def generate_gateway_dataset(
+    psp_provider: str,
+    seed: int = 101,
+    payment_count: int = 60,
+    fee_rate_multiplier: float = 1.0,
+    fee_inflation_instances: list[int] = None,
+) -> Tuple[List[Payment], List[Refund], List[Settlement], List[SettlementPaymentLink], List[BankEntry], List[Adjustment]]:
+    """
+    Generate a dedicated synthetic dataset for an alternative PSP (e.g. PRISMPAY, CLEARSETTLE, STRATAPAY).
+    """
+    random.seed(seed)
+    payments: List[Payment] = []
+    refunds: List[Refund] = []
+    settlements: List[Settlement] = []
+    links: List[SettlementPaymentLink] = []
+    bank_entries: List[BankEntry] = []
+    adjustments: List[Adjustment] = []
+
+    # Payments
+    for i in range(payment_count):
+        day = (i % 10) + 1
+        payments.append(_create_payment(day, psp_provider=psp_provider))
+
+    # Settlements (batches of 3-5)
+    idx = 0
+    settlement_num = 0
+    inflation_set = set(fee_inflation_instances or [])
+
+    while idx < len(payments):
+        batch_size = random.randint(3, 5)
+        batch = payments[idx : idx + batch_size]
+        idx += batch_size
+        if not batch:
+            break
+
+        settlement_num += 1
+        prefix = "CLST" if psp_provider == "CLEARSETTLE" else ("PRIS" if psp_provider == "PRISMPAY" else ("STRA" if psp_provider == "STRATAPAY" else psp_provider[:4].upper()))
+        setl_id = f"setl_{prefix.lower()}_{settlement_num:04d}"
+        utr = f"{prefix}2608{settlement_num:08d}"
+
+        gross = 0
+        fee = 0
+        for p in batch:
+            gross += p.amount_paisa
+            base_fee = calculate_fee_paisa(p.payment_method, p.amount_paisa)
+            fee += int(base_fee * fee_rate_multiplier)
+            links.append(SettlementPaymentLink(settlement_id=setl_id, payment_id=p.payment_id))
+
+        if settlement_num in inflation_set:
+            fee += 4500  # ₹45 intentional inflation
+
+        tax = calculate_tax_paisa(fee)
+        net = gross - fee - tax
+        settled_date = max(p.captured_at for p in batch) + timedelta(days=2)
+
+        settlements.append(
+            Settlement(
+                settlement_id=setl_id,
+                utr=utr,
+                gross_paisa=gross,
+                fee_paisa=fee,
+                tax_paisa=tax,
+                net_paisa=net,
+                settled_at=settled_date,
+                on_hold=False,
+                psp_provider=psp_provider,
+            )
+        )
+
+        bank_entries.append(
+            BankEntry(
+                utr=utr,
+                amount_paisa=net,
+                value_date=settled_date.date() + timedelta(days=1),
+                description=f"NEFT/{psp_provider} SETTLEMENT",
+                bank_reference=f"REF{uuid.uuid4().hex[:8].upper()}",
             )
         )
 

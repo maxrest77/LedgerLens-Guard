@@ -62,3 +62,14 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Treemap & Chart Text: Ensure high-contrast solid black text with no stroke */
+.recharts-treemap text,
+.recharts-treemap-depth-1 text,
+.recharts-treemap-depth-2 text,
+.recharts-surface text.treemap-tile-text {
+  fill: #000000 !important;
+  stroke: none !important;
+  color: #000000 !important;
+  opacity: 1 !important;
+}
