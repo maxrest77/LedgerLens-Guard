@@ -1,8 +1,13 @@
 import pytest
 from sqlmodel import Session
 from backend.db.init import engine
+from backend.db.seed import seed_db
 from backend.engine.ai_controller import process_copilot_query
 from backend.engine.verified_narrative import validate_narrative_facts
+
+@pytest.fixture(autouse=True, scope="module")
+def ensure_seeded_db():
+    seed_db()
 
 def test_ai_controller_exposure_summary():
     with Session(engine) as session:
