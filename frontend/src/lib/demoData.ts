@@ -697,3 +697,79 @@ export const DEMO_NOWCAST = {
 export const DEMO_RISK_CORRELATIONS = [
   { metric_x: "Fee Discrepancy", metric_y: "Settlement Delay", r_value: 0.78, p_value: 0.001 }
 ]
+
+export function getDemoExecutivePack(caseId: string) {
+  const found = DEMO_WORKSPACE_CASES.find(c => c.case_id === caseId) || DEMO_WORKSPACE_CASES[0]
+  return {
+    case: {
+      case_id: found.case_id,
+      portfolio_id: found.portfolio_id || 'PORT_01',
+      exception_code: found.exception_code || 'FEE_MISMATCH',
+      severity: found.severity || 'MEDIUM',
+      status: found.status || 'OPEN',
+      opened_at: found.opened_at || new Date().toISOString(),
+      resolved_at: found.resolved_at || null,
+      confidence_score: found.confidence_score ?? 0.94,
+      explanation: found.explanation || 'Anomaly identified by deterministic rule engine.',
+      suggested_action: found.suggested_action || 'Review and verify ledger match.'
+    },
+    ledger: {
+      expected_paisa: found.expected_paisa || 125000,
+      actual_paisa: found.actual_paisa || 118000,
+      delta_paisa: found.delta_paisa ?? 7000,
+      currency: "INR"
+    },
+    governance: {
+      maker: {
+        email: found.resolved_by || "reviewer@ledgerlens.dev",
+        proposed_action: "APPROVE",
+        action: "PROPOSE",
+        reason: "Matched against nodal bank credit confirmation.",
+        timestamp: found.opened_at || new Date().toISOString()
+      },
+      checker: found.resolved_at ? {
+        email: "admin@ledgerlens.dev",
+        action: "APPROVED",
+        reason: "Dual-control authorized after secondary statement verification.",
+        timestamp: found.resolved_at
+      } : null,
+      dual_control_enforced: true
+    },
+    evidence_pack: {
+      attached_evidence_files: [
+        {
+          filename: "settlement_recon_proof.csv",
+          file_type: "CSV",
+          file_sha256: "8f481e3a67a840fed1112b32b0051e707cf64b82d4da2fc60f64c6bcabdd556a",
+          uploaded_by: "admin@ledgerlens.dev",
+          submitter_role: "ADMIN",
+          uploaded_at: new Date().toISOString(),
+          audit_block_id: 42
+        }
+      ],
+      extracted_transactions: [
+        {
+          record_index: 1,
+          utr: found.utr || "UTR9812401827",
+          amount_paisa: found.expected_paisa || 125000,
+          fee_paisa: 2000,
+          tax_paisa: 360,
+          net_paisa: found.actual_paisa || 118000,
+          timestamp: new Date().toISOString(),
+          masked_account_or_pan: "XXXX-XXXX-4321",
+          source_file: "settlement_recon_proof.csv",
+          submitted_by: "admin@ledgerlens.dev"
+        }
+      ],
+      native_payments: []
+    },
+    cryptographic_seal: {
+      latest_block_index: 42,
+      latest_block_hash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f",
+      previous_block_hash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26e",
+      audit_trail: [],
+      chain_valid: true,
+      generated_at: new Date().toISOString()
+    }
+  }
+}

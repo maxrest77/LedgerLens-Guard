@@ -880,9 +880,11 @@ export default function InternalAnalytics() {
                       dataKey="exception_code" 
                       stroke="#64748b" 
                       fontSize={10} 
-                      angle={-25} 
                       textAnchor="end"
-                      tickFormatter={(val) => val.length > 14 ? val.substring(0, 12) + '...' : val} 
+                      tickFormatter={(val) => {
+                        const str = String(val || '')
+                        return str.length > 14 ? str.substring(0, 12) + '...' : str
+                      }}
                     />
                     <YAxis stroke="#64748b" fontSize={11} tickFormatter={(val) => `₹${val}`} />
                     <Tooltip 

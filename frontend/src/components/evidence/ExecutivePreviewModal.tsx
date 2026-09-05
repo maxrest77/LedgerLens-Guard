@@ -419,7 +419,7 @@ export default function ExecutivePreviewModal({ caseId, isOpen, onClose }: Execu
                 </div>
                 <div>
                   <p className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Anomaly Type</p>
-                  <p className="font-bold text-red-600 mt-0.5">{pack.case.exception_code.replace(/_/g, ' ')}</p>
+                  <p className="font-bold text-red-600 mt-0.5">{(pack.case.exception_code || 'ANOMALY').replace(/_/g, ' ')}</p>
                 </div>
                 <div>
                   <p className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Current Status</p>

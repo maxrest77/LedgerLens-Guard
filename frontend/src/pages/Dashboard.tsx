@@ -87,7 +87,7 @@ export default function Dashboard() {
   const formattedChartData = useMemo(() => {
     return (data?.chart_data || [])
       .map((item) => {
-        const readable = item.code.replace(/_/g, ' ')
+        const readable = String(item?.code || '').replace(/_/g, ' ')
         return {
           ...item,
           readable,
@@ -505,7 +505,7 @@ export default function Dashboard() {
                         textAnchor="end" 
                         interval={0}
                         tickFormatter={(val) => {
-                          const clean = val.replace(/_/g, ' ')
+                          const clean = String(val || '').replace(/_/g, ' ')
                           return clean.length > 13 ? clean.substring(0, 11) + '…' : clean
                         }}
                       />

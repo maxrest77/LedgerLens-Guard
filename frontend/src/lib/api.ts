@@ -25,7 +25,8 @@ import {
   DEMO_NEAR_MISSES,
   DEMO_NOWCAST,
   DEMO_RISK_CORRELATIONS,
-  getDemoExceptionDetail
+  getDemoExceptionDetail,
+  getDemoExecutivePack
 } from './demoData'
 
 const api = axios.create({
@@ -60,6 +61,14 @@ function getFallbackData(url: string, config?: any): any {
     }
     return { email: 'admin@ledgerlens.dev', role: 'ADMIN', portfolio_id: 'ADMIN' }
   }
+  if (url.includes('/auth/login')) {
+    return {
+      access_token: `demo_jwt_admin_${Date.now()}`,
+      role: 'ADMIN',
+      email: 'admin@ledgerlens.dev',
+      portfolio_id: 'ADMIN'
+    }
+  }
   if (url.includes('/auth/refresh')) {
     return { access_token: `demo_refreshed_${Date.now()}` }
   }
@@ -68,6 +77,74 @@ function getFallbackData(url: string, config?: any): any {
   if (url.includes('/api/exceptions/')) {
     if (url.includes('/review')) {
       return { message: "Case review recorded in demo mode." }
+    }
+    if (url.includes('/evidence/upload')) {
+      return {
+        status: "STAGED",
+        attachment_id: 101,
+        filename: "demo_evidence_proof.csv",
+        file_type: "CSV",
+        file_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        uploaded_by: "You",
+        submitter_role: "REVIEWER",
+        summary: {
+          total_records: 1,
+          total_amount_paisa: 125000,
+          net_amount_paisa: 118000,
+          pci_masked_count: 1
+        },
+        extracted_records: [
+          {
+            record_index: 1,
+            utr: "UTR9812401827",
+            amount_paisa: 125000,
+            fee_paisa: 5000,
+            tax_paisa: 900,
+            net_paisa: 119100,
+            masked_account_or_pan: "XXXX-XXXX-1234"
+          }
+        ]
+      }
+    }
+    if (url.includes('/evidence/staged')) {
+      return { message: "Staged evidence cleared." }
+    }
+    if (url.includes('/evidence')) {
+      return {
+        data: [
+          {
+            id: 1,
+            filename: "sponsor_nodal_settlement_recon.csv",
+            file_type: "CSV",
+            file_size_bytes: 24576,
+            file_sha256: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+            uploaded_by: "admin@ledgerlens.dev",
+            submitter_role: "ADMIN",
+            uploaded_at: new Date(Date.now() - 3600000).toISOString(),
+            audit_block_id: 42,
+            is_committed: true,
+            records_count: 1,
+            preview_records: [
+              {
+                record_index: 1,
+                utr: "UTR9812401827",
+                amount_paisa: 125000,
+                fee_paisa: 2000,
+                tax_paisa: 360,
+                net_paisa: 122640,
+                timestamp: new Date().toISOString(),
+                masked_account_or_pan: "XXXX-XXXX-4321"
+              }
+            ]
+          }
+        ]
+      }
+    }
+    if (url.includes('/executive-pack')) {
+      const cleanUrl = url.split('?')[0]
+      const parts = cleanUrl.split('/')
+      const packCaseId = parts[parts.length - 2] || 'CASE-PRISM-001'
+      return getDemoExecutivePack(packCaseId)
     }
     const cleanUrl = url.split('?')[0]
     const parts = cleanUrl.split('/')
@@ -164,12 +241,51 @@ function getFallbackData(url: string, config?: any): any {
     }
   }
 
-  // File exports
+  // File exports & Evidence PDF
   if (url.includes('/export/') || url.includes('/download')) {
     if (config?.responseType === 'blob') {
-      return new Blob(["Case_ID,Severity,Status,Expected,Actual,Delta\nCASE-PRISM-001,CRITICAL,OPEN,1250.00,1180.00,70.00\n"], { type: 'text/csv' })
+      return new Blob(["%PDF-1.4 ... LedgerLens Forensic Evidence Audit Pack ..."], { type: 'application/pdf' })
     }
     return { message: "Export ready." }
+  }
+
+  // Vault Share & Public Auditor Access
+  if (url.includes('/api/vault/share/generate')) {
+    const token = `tok_demo_${Date.now()}`
+    return {
+      share_id: `SHR-${Date.now().toString().slice(-6)}`,
+      access_token: token,
+      otp: "849201",
+      expires_at: new Date(Date.now() + 86400000).toISOString(),
+      vault_url: `${window.location.origin}/vault/access/${token}`
+    }
+  }
+  if (url.includes('/api/vault/share/verify')) {
+    return {
+      verified: true,
+      session_token: `sess_demo_${Date.now()}`,
+      expires_at: new Date(Date.now() + 3600000).toISOString()
+    }
+  }
+  if (url.includes('/api/vault/share/dossier')) {
+    return {
+      case: DEMO_WORKSPACE_CASES[0],
+      evidence_files: [
+        {
+          id: 1,
+          filename: "audit_dossier_proof.pdf",
+          file_type: "PDF",
+          file_size_bytes: 49152,
+          file_sha256: "b45c276a0846170d10b809a47a1bc7e1634b82d4da2fc60f64c6bcabdd556a",
+          uploaded_by: "compliance@ledgerlens.dev",
+          uploaded_at: new Date().toISOString()
+        }
+      ],
+      chain_status: DEMO_CHAIN_STATUS
+    }
+  }
+  if (url.includes('/api/vault/share/download') || url.includes('/api/vault/share/executive-pdf')) {
+    return new Blob(["%PDF-1.4 ... LedgerLens Cryptographic Sealed Vault Dossier ..."], { type: 'application/pdf' })
   }
 
   return null
