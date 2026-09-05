@@ -557,7 +557,7 @@ export default function CommandCenter() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {escalations.slice(0, 5).map((c) => (
+                  {(escalations || []).slice(0, 5).map((c) => (
                     <tr key={c.case_id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 px-3 font-mono font-medium text-indigo-600">
                         <Link to={`/exceptions/${c.case_id}`} className="hover:underline">
@@ -579,7 +579,7 @@ export default function CommandCenter() {
                       </td>
                       <td className="py-3 px-3">
                         <span className="font-mono text-slate-600 font-medium">
-                          {c.status.replace('_', ' ')}
+                          {String(c.status || '').replace(/_/g, ' ')}
                         </span>
                       </td>
                       <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">

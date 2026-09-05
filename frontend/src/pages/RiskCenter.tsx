@@ -189,9 +189,9 @@ export default function RiskCenter() {
       events = events.filter((e) => e.signal_type === timelineSignalFilter)
     }
 
-    if (timelineRange !== 'ALL' && data.timeline_summary?.length) {
+    if (timelineRange !== 'ALL' && data?.timeline_summary?.length) {
       const sliceCount = timelineRange === '7D' ? 7 : 14
-      const validDates = new Set(data.timeline_summary.slice(-sliceCount).map((b) => b.date))
+      const validDates = new Set((data?.timeline_summary || []).slice(-sliceCount).map((b) => b?.date))
       events = events.filter((e) => validDates.has(e.date))
     }
 
@@ -283,9 +283,9 @@ export default function RiskCenter() {
       }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase()
-        const matchesCase = item.case_id.toLowerCase().includes(q)
-        const matchesDetail = item.detail.toLowerCase().includes(q)
-        const matchesLabel = item.signal_label.toLowerCase().includes(q)
+        const matchesCase = String(item?.case_id || '').toLowerCase().includes(q)
+        const matchesDetail = String(item?.detail || '').toLowerCase().includes(q)
+        const matchesLabel = String(item?.signal_label || '').toLowerCase().includes(q)
         if (!matchesCase && !matchesDetail && !matchesLabel) return false
       }
       return true
@@ -348,7 +348,7 @@ export default function RiskCenter() {
         <div className="text-[11px] text-slate-400 font-mono">{pt.timeStr}</div>
         <div className="pt-1 border-t border-slate-700/60 flex items-center justify-between gap-4">
           <span className="text-slate-300">Statistical Deviation:</span>
-          <span className="font-mono font-bold text-amber-400">+{pt.z_score.toFixed(1)}σ</span>
+          <span className="font-mono font-bold text-amber-400">+{(pt.z_score ?? 0).toFixed(1)}σ</span>
         </div>
         <div className="flex items-center justify-between gap-4">
           <span className="text-slate-300">Case ID:</span>
@@ -1049,7 +1049,7 @@ export default function RiskCenter() {
                           style={{ backgroundColor: SEVERITY_COLORS[ev.severity] || '#64748b' }}
                         />
                         <span className="font-semibold text-slate-200">{ev.signal_label}</span>
-                        <span className="font-mono text-slate-400">+{ev.z_score.toFixed(1)}σ</span>
+                        <span className="font-mono text-slate-400">+{(ev.z_score ?? 0).toFixed(1)}σ</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Link
@@ -1205,7 +1205,7 @@ export default function RiskCenter() {
 
                         {/* Z-Score */}
                         <td className="py-3 px-4 text-right font-mono font-bold text-amber-600 whitespace-nowrap">
-                          +{ev.z_score.toFixed(1)}σ
+                          +{(ev.z_score ?? 0).toFixed(1)}σ
                         </td>
 
                         {/* Forensic Detail */}

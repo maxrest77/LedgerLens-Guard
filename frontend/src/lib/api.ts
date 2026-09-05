@@ -235,9 +235,14 @@ function getFallbackData(url: string, config?: any): any {
 
   // AI Copilot
   if (url.includes('/api/copilot/query')) {
+    const text = "LedgerLens Guard analyzed 400 settlement records. Overall match rate is 98.4% with ₹14,250 in active unresolved exposure. Detected a systematic 0.04% fee drift on PrismPay UPI credit transactions."
     return {
-      answer: "LedgerLens Guard analyzed 400 settlement records. Overall match rate is 98.4% with ₹14,250 in active unresolved exposure. Detected a systematic 0.04% fee drift on PrismPay UPI credit transactions.",
-      confidence: 0.95
+      response: text,
+      answer: text,
+      confidence: 0.95,
+      verified: true,
+      intent: "DISPUTE_INVESTIGATION",
+      latency_ms: 138
     }
   }
 

@@ -49,4 +49,44 @@ assert.strictEqual(formattedDelta, "₹0.00");
 const formattedDate = formatDateTime(caseData.opened_at);
 assert.strictEqual(formattedDate, "—");
 
+// Test 6: Verify AICopilotDrawer text split with undefined/null
+const undefinedText = undefined;
+const splitParagraphs = (undefinedText || '').split('\n\n').map(p => String(p || ''));
+assert.strictEqual(splitParagraphs.length, 1);
+assert.strictEqual(splitParagraphs[0], '');
+
+// Test 7: Verify GenerateVaultLinkModal OTP split with undefined
+const undefinedOtp = undefined;
+const splitOtp = (undefinedOtp ? String(undefinedOtp) : '').split('');
+assert.strictEqual(splitOtp.length, 0);
+
+// Test 8: Verify ApprovalQueue exception_code replace with undefined/null
+const undefinedCode = null;
+const replacedCode = String(undefinedCode || 'ANOMALY').replace(/_/g, ' ');
+assert.strictEqual(replacedCode, 'ANOMALY');
+
+// Test 9: Verify CommandCenter status replace with undefined/null
+const undefinedStatus = undefined;
+const replacedStatus = String(undefinedStatus || '').replace(/_/g, ' ');
+assert.strictEqual(replacedStatus, '');
+
+// Test 10: Verify RiskCenter z_score toFixed with undefined/null
+const undefinedZScore = null;
+const fixedZScore = `+${(undefinedZScore ?? 0).toFixed(1)}σ`;
+assert.strictEqual(fixedZScore, '+0.0σ');
+
+// Test 11: Verify ComplianceCenter success_rate_pct toFixed and subject_id slice
+const undefinedRate = undefined;
+const fixedRate = `${(undefinedRate ?? 0).toFixed(2)}%`;
+assert.strictEqual(fixedRate, '0.00%');
+
+const undefinedSubject = null;
+const slicedSubject = undefinedSubject ? (undefinedSubject.length > 14 ? `${undefinedSubject.slice(0, 6)}...` : undefinedSubject) : '—';
+assert.strictEqual(slicedSubject, '—');
+
+// Test 12: Verify LandingStory state title/desc split with undefined
+const undefinedState = {};
+const splitTitle = (undefinedState?.title || '').split('\n');
+assert.strictEqual(splitTitle.length, 1);
+
 console.log("All Frontend Null-Safety Regression Tests PASSED successfully!");

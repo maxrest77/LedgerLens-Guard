@@ -581,7 +581,7 @@ export default function ExecutivePreviewModal({ caseId, isOpen, onClose }: Execu
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 font-mono">
-                          {pack.evidence_pack.extracted_transactions.slice(0, 15).map((tx, idx) => (
+                          {(pack?.evidence_pack?.extracted_transactions || []).slice(0, 15).map((tx, idx) => (
                             <tr key={idx}>
                               <td className="p-1.5 text-slate-800">{tx.utr || '—'}</td>
                               <td className="p-1.5 font-bold text-slate-900">{formatPaisa(tx.net_paisa)}</td>

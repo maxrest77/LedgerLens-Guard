@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '../ui/button'
 import JudgeTourModal from '../common/JudgeTourModal'
 import AICopilotDrawer from '../common/AICopilotDrawer'
+import { ErrorBoundary } from '../common/ErrorBoundary'
 
 export default function AppShell() {
   const { logout, fetchProfile, reviewer } = useAuthStore()
@@ -281,22 +282,28 @@ export default function AppShell() {
       {/* Main Content */}
       <main className="flex-1 p-6 overflow-auto">
         <div className="max-w-6xl mx-auto">
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </div>
       </main>
 
       {/* Global Judge & Evaluator Guide Modal */}
-      <JudgeTourModal isOpen={isTourOpen} onClose={() => setIsTourOpen(false)} />
+      <ErrorBoundary fallback={null}>
+        <JudgeTourModal isOpen={isTourOpen} onClose={() => setIsTourOpen(false)} />
+      </ErrorBoundary>
 
       {/* Sovereign AI Finance Controller Copilot Drawer */}
-      <AICopilotDrawer 
-        isOpen={isCopilotOpen} 
-        onClose={() => {
-          setIsCopilotOpen(false)
-          setCopilotCaseId(null)
-        }} 
-        initialCaseId={copilotCaseId}
-      />
+      <ErrorBoundary fallback={null}>
+        <AICopilotDrawer 
+          isOpen={isCopilotOpen} 
+          onClose={() => {
+            setIsCopilotOpen(false)
+            setCopilotCaseId(null)
+          }} 
+          initialCaseId={copilotCaseId}
+        />
+      </ErrorBoundary>
     </div>
   )
 }

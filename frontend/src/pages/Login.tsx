@@ -18,7 +18,7 @@ export default function Login() {
     e.preventDefault()
     setLoading(true)
 
-    const isAdmin = username.toLowerCase().includes('admin')
+    const isAdmin = String(username || '').toLowerCase().includes('admin')
     const fallbackRole = isAdmin ? 'ADMIN' : 'REVIEWER'
 
     try {
@@ -90,7 +90,7 @@ export default function Login() {
     setPassword(demoPass)
     setLoading(true)
 
-    const isAdmin = demoEmail.toLowerCase().includes('admin')
+    const isAdmin = String(demoEmail || '').toLowerCase().includes('admin')
     const userRole = isAdmin ? 'ADMIN' : 'REVIEWER'
 
     try {

@@ -188,7 +188,7 @@ export default function Insights() {
 
   // Dynamic subtle & professional palette mapping by severity for clean fintech surface
   const getSeverityTheme = (sev: string = '') => {
-    switch (sev.toUpperCase()) {
+    switch (String(sev || '').toUpperCase()) {
       case 'CRITICAL':
         return {
           accent: '#e11d48',
@@ -230,9 +230,9 @@ export default function Insights() {
   // Format snake_case exception code into clean, readable Title Case
   const formatExceptionName = (code: string = '') => {
     if (!code) return ''
-    return code
+    return String(code)
       .split('_')
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .map((part) => (part ? part.charAt(0).toUpperCase() + part.slice(1).toLowerCase() : ''))
       .join(' ')
   }
 

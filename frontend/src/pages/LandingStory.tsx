@@ -355,13 +355,13 @@ function StoryPanel({ state, frameIndex, navigate }: { state: any, frameIndex: M
           
           {/* Smaller, more professional typography */}
           <h2 className="text-2xl md:text-3xl lg:text-[2.1rem] font-bold tracking-tight mb-5 text-slate-900 leading-[1.2]">
-            {state.title.split('\n').map((line: string, i: number) => (
+            {(state?.title || '').split('\n').map((line: string, i: number) => (
               <span key={i} className="block">{line}</span>
             ))}
           </h2>
           
           <div className="text-base text-slate-600 font-medium leading-relaxed max-w-md space-y-1">
-            {state.desc.split('\n').map((line: string, i: number) => {
+            {(state?.desc || '').split('\n').map((line: string, i: number) => {
               if (line === '') {
                 return <div key={i} className="h-2" />
               }

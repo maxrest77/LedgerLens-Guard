@@ -189,9 +189,9 @@ export default function ComplianceCenter() {
     const q = erasureSearch.toLowerCase()
     return erasures.filter(
       e =>
-        e.erasure_id.toLowerCase().includes(q) ||
-        e.subject_id.toLowerCase().includes(q) ||
-        e.dpdp_section_reference.toLowerCase().includes(q)
+        String(e?.erasure_id || '').toLowerCase().includes(q) ||
+        String(e?.subject_id || '').toLowerCase().includes(q) ||
+        String(e?.dpdp_section_reference || '').toLowerCase().includes(q)
     )
   }, [erasures, erasureSearch])
 
@@ -200,10 +200,10 @@ export default function ComplianceCenter() {
     const q = overrideSearch.toLowerCase()
     return overrides.filter(
       o =>
-        o.override_id.toLowerCase().includes(q) ||
-        o.exception_id.toLowerCase().includes(q) ||
-        o.admin_user.toLowerCase().includes(q) ||
-        o.justification.toLowerCase().includes(q)
+        String(o?.override_id || '').toLowerCase().includes(q) ||
+        String(o?.exception_id || '').toLowerCase().includes(q) ||
+        String(o?.admin_user || '').toLowerCase().includes(q) ||
+        String(o?.justification || '').toLowerCase().includes(q)
     )
   }, [overrides, overrideSearch])
 
@@ -485,7 +485,7 @@ export default function ComplianceCenter() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                 <XAxis
                   dataKey="date"
-                  tickFormatter={d => d.slice(5)}
+                  tickFormatter={d => d ? String(d).slice(5) : ''}
                   stroke="#94a3b8"
                   fontSize={11}
                   tickLine={false}
@@ -509,7 +509,7 @@ export default function ComplianceCenter() {
                             Date: {data.date}
                           </div>
                           <div className="text-slate-700">
-                            Success Rate: <span className="font-mono font-bold text-emerald-600">{data.success_rate_pct.toFixed(2)}%</span>
+                            Success Rate: <span className="font-mono font-bold text-emerald-600">{(data.success_rate_pct ?? 0).toFixed(2)}%</span>
                           </div>
                           <div className="text-slate-500 mt-0.5">
                             Status: <span className="font-mono text-slate-800 font-semibold">{data.status}</span>
@@ -565,7 +565,7 @@ export default function ComplianceCenter() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={erasureTrend} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="date" tickFormatter={d => d.slice(5)} stroke="#94a3b8" fontSize={9} tickLine={false} />
+                  <XAxis dataKey="date" tickFormatter={d => d ? String(d).slice(5) : ''} stroke="#94a3b8" fontSize={9} tickLine={false} />
                   <YAxis stroke="#94a3b8" fontSize={9} tickLine={false} allowDecimals={false} />
                   <Tooltip
                     content={({ active, payload }) => {
@@ -620,7 +620,7 @@ export default function ComplianceCenter() {
                     <tr key={e.erasure_id} className="hover:bg-slate-50/80 transition-colors font-mono">
                       <td className="p-3 font-semibold text-amber-600">{e.erasure_id}</td>
                       <td className="p-3 text-slate-600 truncate max-w-[120px]" title={e.subject_id}>
-                        {e.subject_id.length > 14 ? `${e.subject_id.slice(0, 6)}...${e.subject_id.slice(-4)}` : e.subject_id}
+                        {e.subject_id ? (e.subject_id.length > 14 ? `${e.subject_id.slice(0, 6)}...${e.subject_id.slice(-4)}` : e.subject_id) : '—'}
                       </td>
                       <td className="p-3 text-slate-500">
                         {e.completed_date ? e.completed_date.slice(0, 10) : '—'}
@@ -660,7 +660,7 @@ export default function ComplianceCenter() {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={overrideTrend} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="date" tickFormatter={d => d.slice(5)} stroke="#94a3b8" fontSize={9} tickLine={false} />
+                  <XAxis dataKey="date" tickFormatter={d => d ? String(d).slice(5) : ''} stroke="#94a3b8" fontSize={9} tickLine={false} />
                   <YAxis stroke="#94a3b8" fontSize={9} tickLine={false} allowDecimals={false} />
                   <Tooltip
                     content={({ active, payload }) => {

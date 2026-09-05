@@ -59,7 +59,7 @@ export default function ApprovalQueue() {
                       </div>
                       <div>
                         <div className="flex gap-2 items-center mb-1">
-                          <span className="font-bold text-slate-900">{c.exception_code.replace(/_/g, ' ')}</span>
+                          <span className="font-bold text-slate-900">{String(c.exception_code || 'ANOMALY').replace(/_/g, ' ')}</span>
                           <Badge variant="warning">{c.status}</Badge>
                         </div>
                         <p className="text-sm text-slate-500 font-mono">Case: {c.case_id} | Opened: {formatDateTime(c.opened_at)}</p>

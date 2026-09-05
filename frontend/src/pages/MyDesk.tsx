@@ -119,7 +119,7 @@ export default function MyDesk() {
   }
 
   const getSeverityBadge = (severity: string) => {
-    const sev = severity.toUpperCase()
+    const sev = String(severity || '').toUpperCase()
     if (sev === 'CRITICAL') {
       return <Badge variant="destructive" className="font-mono text-[10px] tracking-wider">CRITICAL</Badge>
     }

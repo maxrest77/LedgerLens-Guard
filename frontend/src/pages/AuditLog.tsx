@@ -152,7 +152,7 @@ export default function AuditLog() {
     e.case_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     e.reviewer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     e.resource_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    e.files_accessed?.some(f => f.toLowerCase().includes(searchTerm.toLowerCase()))
+    e.files_accessed?.some(f => String(f || '').toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
   return (

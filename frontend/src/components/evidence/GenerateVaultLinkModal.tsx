@@ -205,17 +205,19 @@ export const GenerateVaultLinkModal: React.FC<GenerateVaultLinkModalProps> = ({
                 <div className="flex items-center gap-2">
                   <Key className="w-4 h-4 text-amber-400" />
                   <div className="flex gap-1.5 font-mono text-xl font-bold tracking-widest text-amber-300">
-                    {result.otp.split('').map((ch, idx) => (
+                    {result?.otp ? String(result.otp).split('').map((ch, idx) => (
                       <span key={idx} className="bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
                         {ch}
                       </span>
-                    ))}
+                    )) : (
+                      <span className="text-xs text-slate-400 font-mono">PIN Generated</span>
+                    )}
                   </div>
                 </div>
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => copyToClipboard(result.otp, 'otp')}
+                  onClick={() => copyToClipboard(result?.otp || '', 'otp')}
                   className="text-xs text-slate-300 hover:text-white hover:bg-slate-800 h-8 gap-1"
                 >
                   {copiedOtp ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
@@ -226,7 +228,7 @@ export const GenerateVaultLinkModal: React.FC<GenerateVaultLinkModalProps> = ({
 
             <div className="text-[11px] text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-200/60 leading-relaxed">
               <span className="font-bold text-slate-700">Security Safeguard:</span> This link will expire on{' '}
-              <span className="font-semibold text-slate-800">{new Date(result.expires_at).toLocaleString()}</span>. 
+              <span className="font-semibold text-slate-800">{result?.expires_at ? new Date(result.expires_at).toLocaleString() : '24 hours'}</span>. 
               Entering 3 incorrect OTPs will permanently lock the link.
             </div>
 

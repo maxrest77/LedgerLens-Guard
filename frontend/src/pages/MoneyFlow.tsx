@@ -444,7 +444,7 @@ export default function MoneyFlow() {
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              {r.toUpperCase()}
+              {String(r || '').toUpperCase()}
             </button>
           ))}
           <Button

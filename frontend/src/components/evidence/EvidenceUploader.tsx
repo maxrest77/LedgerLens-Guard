@@ -430,7 +430,7 @@ export default function EvidenceUploader({ caseId, caseStatus, onUploadSuccess }
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
-                      {lastUpload.extracted_records.slice(0, 5).map((rec) => (
+                      {(lastUpload?.extracted_records || []).slice(0, 5).map((rec) => (
                         <tr key={rec.record_index}>
                           <td className="p-2 text-slate-400">{rec.record_index}</td>
                           <td className="p-2 font-bold text-slate-800">{rec.utr}</td>
