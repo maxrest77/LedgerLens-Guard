@@ -38,3 +38,5 @@ skills-lock.json
 # Runtime uploads & backups
 backend/uploads/
 backend/backups/
+
+.vercel
