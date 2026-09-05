@@ -95,7 +95,7 @@ export default function ExceptionDetail() {
   const [downloadingPdf, setDownloadingPdf] = useState(false)
 
   const buildForensicBriefing = () => {
-    if (!data) return []
+    if (!data || !data.case) return []
     const c = data.case
     const e = data.evidence || {}
     const sections: { title: string; content: string }[] = []
@@ -200,7 +200,17 @@ export default function ExceptionDetail() {
   const fetchCase = async () => {
     try {
       const res = await api.get(`/api/exceptions/${id}`)
-      setData(res.data)
+      if (res.data?.case) {
+        setData(res.data)
+      } else if (res.data?.data?.case) {
+        setData(res.data.data)
+      } else if (res.data?.case_id) {
+        setData({ case: res.data, evidence: res.data.evidence || {} })
+      } else if (res.data?.data?.case_id) {
+        setData({ case: res.data.data, evidence: res.data.data.evidence || {} })
+      } else {
+        setData(res.data)
+      }
     } catch (err) {
       // Interceptor handles error
       navigate('/workspace')
@@ -293,10 +303,19 @@ export default function ExceptionDetail() {
     )
   }
 
-  if (!data) return null
+  if (!data || !data.case) {
+    return (
+      <div className="p-8 text-center space-y-4">
+        <p className="text-slate-500 font-medium">Exception case details not found or loading...</p>
+        <Button variant="outline" onClick={() => navigate('/workspace')}>
+          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Workspace
+        </Button>
+      </div>
+    )
+  }
 
   const { case: caseData } = data
-  const isResolved = ['APPROVED', 'REJECTED', 'AUTO_RESOLVED'].includes(caseData.status)
+  const isResolved = ['APPROVED', 'REJECTED', 'AUTO_RESOLVED'].includes(caseData?.status || '')
 
   return (
     <div className="space-y-6">
@@ -308,20 +327,20 @@ export default function ExceptionDetail() {
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2 flex items-center gap-3">
             Exception Detail
-            <Badge variant="outline" className={`shadow-none font-bold border-transparent ${caseData.severity === 'CRITICAL' ? 'bg-red-100 text-red-700' : caseData.severity === 'HIGH' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'}`}>
-              {caseData.severity}
+            <Badge variant="outline" className={`shadow-none font-bold border-transparent ${caseData?.severity === 'CRITICAL' ? 'bg-red-100 text-red-700' : caseData?.severity === 'HIGH' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'}`}>
+              {caseData?.severity || 'MEDIUM'}
             </Badge>
             <Badge variant="outline" className={`shadow-none font-bold ${
               !isResolved ? 'bg-white border-slate-200 text-slate-700' :
-              caseData.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
-              caseData.status === 'AUTO_RESOLVED' ? 'bg-blue-100 text-blue-700 border-blue-200' :
-              caseData.status === 'REJECTED' ? 'bg-red-100 text-red-700 border-red-200' :
+              caseData?.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+              caseData?.status === 'AUTO_RESOLVED' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+              caseData?.status === 'REJECTED' ? 'bg-red-100 text-red-700 border-red-200' :
               'bg-yellow-100 text-yellow-700 border-yellow-200'
             }`}>
-              {caseData.status}
+              {caseData?.status}
             </Badge>
           </h2>
-          <p className="font-mono text-sm text-slate-500 tracking-tight">Case Identifier: <span className="text-slate-800 font-bold bg-white px-2 py-0.5 rounded border border-slate-200 shadow-sm ml-1">{caseData.case_id?.split('_').pop()}</span></p>
+          <p className="font-mono text-sm text-slate-500 tracking-tight">Case Identifier: <span className="text-slate-800 font-bold bg-white px-2 py-0.5 rounded border border-slate-200 shadow-sm ml-1">{caseData?.case_id?.split('_').pop()}</span></p>
         </div>
         <div className="flex items-center gap-2">
           <Button 

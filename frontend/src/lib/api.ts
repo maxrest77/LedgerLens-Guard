@@ -5,10 +5,27 @@ import {
   DEMO_DASHBOARD_DATA,
   DEMO_CHAIN_STATUS,
   DEMO_EXPOSURE_DATA,
-  DEMO_PSP_HEALTH,
+  DEMO_PSP_HEALTH_FULL,
   DEMO_ESCALATIONS,
   DEMO_WORKSPACE_CASES,
-  DEMO_AUDIT_BLOCKS
+  DEMO_AUDIT_BLOCKS,
+  DEMO_TOLERANCE_RULES,
+  DEMO_MY_DESK_DATA,
+  DEMO_COMPLIANCE_SUMMARY,
+  DEMO_RISK_CORRELATION_DATA,
+  DEMO_PORTFOLIO_RADAR,
+  DEMO_TREEMAP,
+  DEMO_DAILY_ACTIVITY,
+  DEMO_BRIDGE,
+  DEMO_INTERNAL_SUMMARY,
+  DEMO_INTERNAL_TRENDS,
+  DEMO_INTERNAL_PORTFOLIOS,
+  DEMO_INTERNAL_FEE_IMPACT,
+  DEMO_INTERNAL_TEAM,
+  DEMO_NEAR_MISSES,
+  DEMO_NOWCAST,
+  DEMO_RISK_CORRELATIONS,
+  getDemoExceptionDetail
 } from './demoData'
 
 const api = axios.create({
@@ -34,49 +51,8 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-function getFallbackData(url: string) {
-  if (url.includes('/api/dashboard')) return DEMO_DASHBOARD_DATA
-  if (url.includes('/api/analytics/chain-status')) return DEMO_CHAIN_STATUS
-  if (url.includes('/api/admin/exposure')) return DEMO_EXPOSURE_DATA
-  if (url.includes('/api/admin/psp-health')) return { data: DEMO_PSP_HEALTH }
-  if (url.includes('/api/admin/escalations')) return { data: DEMO_ESCALATIONS }
-  if (url.includes('/api/admin/tolerances')) {
-    return {
-      data: [
-        {
-          id: 1,
-          parameter_name: "AUTO_RESOLVE_THRESHOLD_PAISA",
-          threshold_value: 500,
-          status: "ACTIVE",
-          effective_from: new Date().toISOString(),
-          proposed_by: "system",
-          approved_by: "system",
-          reason: "Initial seeding"
-        }
-      ]
-    }
-  }
-  if (url.includes('/api/reconciliation') || url.includes('/api/workspace')) {
-    return {
-      data: DEMO_WORKSPACE_CASES,
-      metrics: {
-        total_exceptions: 6,
-        active_unresolved_count: 2,
-        open_count: 1,
-        under_review_count: 1,
-        total_unresolved_inr: 4570,
-        auto_resolved_count: 1,
-        finalized_count: 1
-      }
-    }
-  }
-  if (url.includes('/api/audit')) return { data: DEMO_AUDIT_BLOCKS, total: DEMO_AUDIT_BLOCKS.length }
-  if (url.includes('/api/exceptions/')) {
-    const parts = url.split('/')
-    const caseId = parts[parts.length - 1]?.split('?')[0]
-    const found = DEMO_WORKSPACE_CASES.find(c => c.case_id === caseId)
-    return { data: found || DEMO_WORKSPACE_CASES[0] }
-  }
+function getFallbackData(url: string, config?: any): any {
+  // Auth endpoints
   if (url.includes('/auth/me')) {
     const raw = localStorage.getItem('auth_reviewer')
     if (raw) {
@@ -84,6 +60,118 @@ function getFallbackData(url: string) {
     }
     return { email: 'admin@ledgerlens.dev', role: 'ADMIN', portfolio_id: 'ADMIN' }
   }
+  if (url.includes('/auth/refresh')) {
+    return { access_token: `demo_refreshed_${Date.now()}` }
+  }
+
+  // Exception detail: MUST return { case: ..., evidence: ... }
+  if (url.includes('/api/exceptions/')) {
+    if (url.includes('/review')) {
+      return { message: "Case review recorded in demo mode." }
+    }
+    const cleanUrl = url.split('?')[0]
+    const parts = cleanUrl.split('/')
+    const caseId = parts[parts.length - 1] || 'CASE-PRISM-001'
+    return getDemoExceptionDetail(caseId)
+  }
+
+  // Workspace & Reconciliation
+  if (url.includes('/api/workspace') || url.includes('/api/reconciliation')) {
+    return {
+      data: DEMO_WORKSPACE_CASES,
+      metrics: {
+        total_exceptions: 400,
+        active_unresolved_count: 12,
+        open_count: 10,
+        under_review_count: 2,
+        total_unresolved_inr: 14250,
+        auto_resolved_count: 388,
+        finalized_count: 6
+      }
+    }
+  }
+
+  // Admin & Financial Control Plane
+  if (url.includes('/api/admin/exposure')) return DEMO_EXPOSURE_DATA
+  if (url.includes('/api/admin/psp-health')) return DEMO_PSP_HEALTH_FULL
+  if (url.includes('/api/admin/escalations')) return { data: DEMO_ESCALATIONS }
+  if (url.includes('/api/admin/tolerances')) return { data: DEMO_TOLERANCE_RULES }
+  if (url.includes('/api/admin/rules/simulate')) {
+    return {
+      simulated_impact: { affected_cases: 14, auto_resolved: 12, delta_saved_inr: 3450 },
+      status: "SIMULATED"
+    }
+  }
+  if (url.includes('/api/admin/rules/propose')) {
+    return { message: "Rule proposed successfully", status: "DRAFT" }
+  }
+  if (url.includes('/api/admin/rules/reset')) {
+    return { message: "Rules reset successfully" }
+  }
+
+  // Dashboard & Telemetry
+  if (url.includes('/api/dashboard')) return DEMO_DASHBOARD_DATA
+  if (url.includes('/api/analytics/chain-status')) return DEMO_CHAIN_STATUS
+
+  // Audit Chain
+  if (url.includes('/api/audit/verify')) {
+    return { is_valid: true, block_count: DEMO_AUDIT_BLOCKS.length, verified_at: new Date().toISOString() }
+  }
+  if (url.includes('/api/audit')) {
+    return { data: DEMO_AUDIT_BLOCKS, total: DEMO_AUDIT_BLOCKS.length }
+  }
+
+  // Compliance Center
+  if (url.includes('/api/compliance/summary')) return DEMO_COMPLIANCE_SUMMARY
+  if (url.includes('/api/compliance/erasure-log')) return { data: [] }
+  if (url.includes('/api/compliance/admin-overrides') || url.includes('/api/analytics/admin-overrides')) {
+    return { data: [] }
+  }
+  if (url.includes('/api/analytics/evidence-retrievals')) {
+    return { data: [] }
+  }
+  if (url.includes('/api/compliance/regulatory-package')) {
+    return { package_id: "REG-PKG-2026-09", status: "GENERATED", download_url: "#" }
+  }
+
+  // Reviewer Desk
+  if (url.includes('/api/analytics/my-desk')) return DEMO_MY_DESK_DATA
+
+  // Risk Center
+  if (url.includes('/api/analytics/risk-correlation')) return DEMO_RISK_CORRELATION_DATA
+
+  // Insights & Analytics Radar
+  if (url.includes('/api/analytics/portfolio-radar')) return DEMO_PORTFOLIO_RADAR
+  if (url.includes('/api/analytics/treemap')) return DEMO_TREEMAP
+  if (url.includes('/api/analytics/daily-activity')) return DEMO_DAILY_ACTIVITY
+  if (url.includes('/api/analytics/bridge')) return DEMO_BRIDGE
+
+  // Internal Analytics & Predictive Modeling
+  if (url.includes('/api/analytics/internal/summary')) return DEMO_INTERNAL_SUMMARY
+  if (url.includes('/api/analytics/internal/trends')) return DEMO_INTERNAL_TRENDS
+  if (url.includes('/api/analytics/internal/portfolios')) return DEMO_INTERNAL_PORTFOLIOS
+  if (url.includes('/api/analytics/internal/fee-impact')) return DEMO_INTERNAL_FEE_IMPACT
+  if (url.includes('/api/analytics/internal/team')) return DEMO_INTERNAL_TEAM
+  if (url.includes('/api/analytics/predictive/near-misses')) return DEMO_NEAR_MISSES
+  if (url.includes('/api/analytics/predictive/settlement-nowcast')) return DEMO_NOWCAST
+  if (url.includes('/api/analytics/predictive/risk-correlations')) return DEMO_RISK_CORRELATIONS
+
+  // AI Copilot
+  if (url.includes('/api/copilot/query')) {
+    return {
+      answer: "LedgerLens Guard analyzed 400 settlement records. Overall match rate is 98.4% with ₹14,250 in active unresolved exposure. Detected a systematic 0.04% fee drift on PrismPay UPI credit transactions.",
+      confidence: 0.95
+    }
+  }
+
+  // File exports
+  if (url.includes('/export/') || url.includes('/download')) {
+    if (config?.responseType === 'blob') {
+      return new Blob(["Case_ID,Severity,Status,Expected,Actual,Delta\nCASE-PRISM-001,CRITICAL,OPEN,1250.00,1180.00,70.00\n"], { type: 'text/csv' })
+    }
+    return { message: "Export ready." }
+  }
+
   return null
 }
 
@@ -92,8 +180,8 @@ api.interceptors.response.use(
     // If response is an HTML page (from Vercel SPA rewrite), provide fallback demo data if applicable
     if (typeof response.data === 'string' && response.data.trim().startsWith('<!doctype html')) {
       const url = response.config?.url || ''
-      const fallback = getFallbackData(url)
-      if (fallback) {
+      const fallback = getFallbackData(url, response.config)
+      if (fallback !== null) {
         return { ...response, data: fallback }
       }
     }
@@ -108,8 +196,8 @@ api.interceptors.response.use(
     const status = error.response?.status
     const isUnreachable = !status || status === 404 || status === 405 || status === 502 || status === 503
     if (isUnreachable) {
-      const fallback = getFallbackData(url)
-      if (fallback) {
+      const fallback = getFallbackData(url, error.config)
+      if (fallback !== null) {
         return Promise.resolve({
           data: fallback,
           status: 200,
