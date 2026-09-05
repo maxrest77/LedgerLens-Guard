@@ -25,9 +25,9 @@ dependencies = [
     "uvicorn>=0.52.4",
 ]
 
-[project.scripts]
-backend = "backend:main"
+[tool.uv]
+package = false
 
-[build-system]
-requires = ["uv_build>=0.12.7,<0.13.0"]
-build-backend = "uv_build"
+[tool.pytest.ini_options]
+pythonpath = [".."]
+

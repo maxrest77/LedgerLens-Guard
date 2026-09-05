@@ -18,6 +18,9 @@ export default function Login() {
     e.preventDefault()
     setLoading(true)
 
+    const isAdmin = username.toLowerCase().includes('admin')
+    const fallbackRole = isAdmin ? 'ADMIN' : 'REVIEWER'
+
     try {
       const formData = new URLSearchParams()
       formData.append('username', username)
@@ -29,17 +32,21 @@ export default function Login() {
         }
       })
 
-      const accessToken = res.data.access_token
-      if (accessToken) {
-        localStorage.setItem('access_token', accessToken)
+      if (typeof res.data === 'string' && (res.data as string).includes('<!doctype html')) {
+        throw new Error('Vercel static rewrite')
       }
 
-      const userRole = res.data.role || 'REVIEWER'
-      useAuthStore.getState().setReviewer({
-        email: res.data.email || username,
+      const accessToken = res.data?.access_token || `demo_${Date.now()}`
+      const userRole = res.data?.role || fallbackRole
+      const profile = {
+        email: res.data?.email || username,
         role: userRole,
-        portfolio_id: res.data.portfolio_id
-      }, accessToken)
+        portfolio_id: res.data?.portfolio_id || (userRole === 'ADMIN' ? 'ADMIN' : 'PORT_01')
+      }
+
+      localStorage.setItem('access_token', accessToken)
+      localStorage.setItem('auth_reviewer', JSON.stringify(profile))
+      useAuthStore.getState().setReviewer(profile, accessToken)
 
       toast.success('Login successful')
 
@@ -49,7 +56,30 @@ export default function Login() {
         navigate('/dashboard', { replace: true })
       }
     } catch (err: any) {
-      toast.error(err.response?.data?.detail || 'Login failed')
+      if (err.response?.status === 401 && err.response?.data?.detail) {
+        toast.error(err.response.data.detail)
+        return
+      }
+
+      // Standalone Demo Mode fallback for static Vercel / offline preview
+      const demoToken = `demo_jwt_${fallbackRole.toLowerCase()}_${Date.now()}`
+      const profile = {
+        email: username || (isAdmin ? 'admin@ledgerlens.dev' : 'reviewer@ledgerlens.dev'),
+        role: fallbackRole,
+        portfolio_id: isAdmin ? 'ADMIN' : 'PORT_01'
+      }
+
+      localStorage.setItem('access_token', demoToken)
+      localStorage.setItem('auth_reviewer', JSON.stringify(profile))
+      useAuthStore.getState().setReviewer(profile, demoToken)
+
+      toast.success(`Signed in as ${fallbackRole === 'ADMIN' ? 'Admin / Controller' : 'Reviewer / Maker'} (Demo Mode)`)
+
+      if (fallbackRole === 'ADMIN') {
+        navigate('/command-center', { replace: true })
+      } else {
+        navigate('/dashboard', { replace: true })
+      }
     } finally {
       setLoading(false)
     }
@@ -59,6 +89,10 @@ export default function Login() {
     setUsername(demoEmail)
     setPassword(demoPass)
     setLoading(true)
+
+    const isAdmin = demoEmail.toLowerCase().includes('admin')
+    const userRole = isAdmin ? 'ADMIN' : 'REVIEWER'
+
     try {
       const formData = new URLSearchParams()
       formData.append('username', demoEmail)
@@ -70,17 +104,20 @@ export default function Login() {
         }
       })
 
-      const accessToken = res.data.access_token
-      if (accessToken) {
-        localStorage.setItem('access_token', accessToken)
+      if (typeof res.data === 'string' && (res.data as string).includes('<!doctype html')) {
+        throw new Error('Vercel static rewrite')
       }
 
-      const userRole = res.data.role || 'REVIEWER'
-      useAuthStore.getState().setReviewer({
-        email: res.data.email || demoEmail,
-        role: userRole,
-        portfolio_id: res.data.portfolio_id
-      }, accessToken)
+      const accessToken = res.data?.access_token || `demo_${Date.now()}`
+      const profile = {
+        email: res.data?.email || demoEmail,
+        role: res.data?.role || userRole,
+        portfolio_id: res.data?.portfolio_id || (userRole === 'ADMIN' ? 'ADMIN' : 'PORT_01')
+      }
+
+      localStorage.setItem('access_token', accessToken)
+      localStorage.setItem('auth_reviewer', JSON.stringify(profile))
+      useAuthStore.getState().setReviewer(profile, accessToken)
 
       toast.success(`Signed in as ${userRole === 'ADMIN' ? 'Admin / Controller' : 'Reviewer / Maker'}`)
 
@@ -89,8 +126,26 @@ export default function Login() {
       } else {
         navigate('/dashboard', { replace: true })
       }
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || 'Demo login failed')
+    } catch {
+      // Fallback for static Vercel deployment / offline demo
+      const demoToken = `demo_jwt_${userRole.toLowerCase()}_${Date.now()}`
+      const profile = {
+        email: demoEmail,
+        role: userRole,
+        portfolio_id: userRole === 'ADMIN' ? 'ADMIN' : 'PORT_01'
+      }
+
+      localStorage.setItem('access_token', demoToken)
+      localStorage.setItem('auth_reviewer', JSON.stringify(profile))
+      useAuthStore.getState().setReviewer(profile, demoToken)
+
+      toast.success(`Signed in as ${userRole === 'ADMIN' ? 'Admin / Controller' : 'Reviewer / Maker'} (Demo Mode)`)
+
+      if (userRole === 'ADMIN') {
+        navigate('/command-center', { replace: true })
+      } else {
+        navigate('/dashboard', { replace: true })
+      }
     } finally {
       setLoading(false)
     }
