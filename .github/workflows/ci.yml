@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   backend-test:
-    name: Backend Tests (Python 3.12)
+    name: Backend Tests (Python 3.13)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -33,7 +33,7 @@ jobs:
           cache-dependency-glob: "backend/uv.lock"
 
       - name: Set up Python
-        run: uv python install 3.12
+        run: uv python install 3.13
 
       - name: Install Dependencies
         run: uv sync --locked

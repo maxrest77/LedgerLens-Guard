@@ -34,3 +34,7 @@ frontend/dist/
 # Agent Skills & Locks
 .agents/
 skills-lock.json
+
+# Runtime uploads & backups
+backend/uploads/
+backend/backups/
