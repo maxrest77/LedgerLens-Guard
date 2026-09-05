@@ -287,7 +287,7 @@ export default function EvidenceUploader({ caseId, caseStatus, onUploadSuccess }
 
                     <div className="flex items-center gap-2 self-end md:self-center">
                       <Badge variant="outline" className="text-[10px] font-mono border-slate-200 text-slate-600 bg-slate-50">
-                        SHA: {att.file_sha256.substring(0, 8)}...
+                        SHA: {att.file_sha256 ? `${att.file_sha256.substring(0, 8)}...` : '—'}
                       </Badge>
                       {att.preview_records && att.preview_records.length > 0 && (
                         <Button
@@ -372,7 +372,7 @@ export default function EvidenceUploader({ caseId, caseStatus, onUploadSuccess }
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-[10px] font-mono border-slate-200 bg-white text-slate-700">
-                  SHA-256: {lastUpload.file_sha256.substring(0, 10)}...
+                  SHA-256: {lastUpload.file_sha256 ? `${lastUpload.file_sha256.substring(0, 10)}...` : '—'}
                 </Badge>
                 <Button
                   onClick={handleDiscardStaged}

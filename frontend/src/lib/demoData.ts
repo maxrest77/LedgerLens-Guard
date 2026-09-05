@@ -8,16 +8,16 @@ export interface CaseDetail {
   status: string
   expected_paisa: number
   actual_paisa: number
-  delta_paisa: number
-  confidence_score: number
-  explanation: string
-  suggested_action: string
-  opened_at: string
+  delta_paisa: number | null
+  confidence_score: number | null
+  explanation: string | null
+  suggested_action: string | null
+  opened_at: string | null
   resolved_at: string | null
   resolved_by: string | null
-  utr?: string
-  payment_id?: string
-  settlement_id?: string
+  utr?: string | null
+  payment_id?: string | null
+  settlement_id?: string | null
 }
 
 export const DEMO_WORKSPACE_CASES: CaseDetail[] = [
@@ -134,11 +134,36 @@ export const DEMO_WORKSPACE_CASES: CaseDetail[] = [
     opened_at: new Date(Date.now() - 172800000).toISOString(),
     resolved_at: new Date(Date.now() - 120000000).toISOString(),
     resolved_by: "admin@ledgerlens.dev"
+  },
+  {
+    case_id: "CASE-NULL-FIXTURE-999",
+    portfolio_id: "PORT_01",
+    exception_code: "CUSTOM_UNKNOWN",
+    severity: "MEDIUM",
+    settlement_id: null,
+    payment_id: null,
+    utr: null,
+    expected_paisa: 0,
+    actual_paisa: 0,
+    delta_paisa: null,
+    confidence_score: null,
+    explanation: null,
+    suggested_action: null,
+    status: "OPEN",
+    opened_at: null,
+    resolved_at: null,
+    resolved_by: null
   }
 ]
 
 export function getDemoExceptionDetail(caseId: string) {
   const found = DEMO_WORKSPACE_CASES.find(c => c.case_id === caseId) || DEMO_WORKSPACE_CASES[0]
+  if (found.case_id === "CASE-NULL-FIXTURE-999") {
+    return {
+      case: found,
+      evidence: {}
+    }
+  }
   return {
     case: found,
     evidence: {

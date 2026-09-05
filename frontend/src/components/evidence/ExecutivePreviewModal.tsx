@@ -537,10 +537,10 @@ export default function ExecutivePreviewModal({ caseId, isOpen, onClose }: Execu
                       <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
                         {pack.evidence_pack.attached_evidence_files.map((file, idx) => (
                           <tr key={idx}>
-                            <td className="p-2 font-sans font-medium text-slate-800">{file.filename}</td>
-                            <td className="p-2 font-bold">{file.file_type}</td>
-                            <td className="p-2 text-slate-500 truncate max-w-[160px]" title={file.file_sha256}>
-                              {file.file_sha256.substring(0, 16)}...
+                            <td className="p-2 font-sans font-medium text-slate-800">{file.filename || '—'}</td>
+                            <td className="p-2 font-bold">{file.file_type || '—'}</td>
+                            <td className="p-2 text-slate-500 truncate max-w-[160px]" title={file.file_sha256 || ''}>
+                              {file.file_sha256 ? `${file.file_sha256.substring(0, 16)}...` : '—'}
                             </td>
                             <td className="p-2 font-sans">
                               <div className="flex items-center gap-1.5 flex-wrap">

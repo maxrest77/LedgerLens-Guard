@@ -97,12 +97,12 @@ class ReconciliationCase(SQLModel, table=True):
     settlement_id: Optional[str] = None
     payment_id: Optional[str] = None
     utr: Optional[str] = None
-    expected_paisa: int
-    actual_paisa: int
-    delta_paisa: int
-    confidence_score: float
-    explanation: str
-    suggested_action: str
+    expected_paisa: int = Field(default=0)
+    actual_paisa: int = Field(default=0)
+    delta_paisa: Optional[int] = Field(default=None)
+    confidence_score: Optional[float] = Field(default=0.0)
+    explanation: Optional[str] = None
+    suggested_action: Optional[str] = None
     status: CaseStatus = CaseStatus.OPEN
     opened_at: datetime
     resolved_at: Optional[datetime] = None

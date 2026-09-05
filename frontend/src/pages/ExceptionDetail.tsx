@@ -110,79 +110,85 @@ export default function ExceptionDetail() {
       'MISSING_BANK_ENTRY': 'Settlement Without Bank Credit',
       'REFUND_EXCESS': 'Refund Exceeds Original Payment',
     }
-    const friendlyName = exceptionNames[c.exception_code] || c.exception_code
+    const friendlyName = exceptionNames[c.exception_code || ''] || c.exception_code || 'Reconciliation Exception'
+    const confScore = c.confidence_score != null ? ((c.confidence_score * 100).toFixed(1)) : '0.0'
+    const delta = c.delta_paisa ?? 0
     sections.push({
       title: 'Incident Summary',
-      content: `A ${c.severity}-severity exception of type "${friendlyName}" (code: ${c.exception_code}) was automatically detected by the reconciliation engine. The system flagged case ${c.case_id} with a confidence score of ${(c.confidence_score * 100).toFixed(1)}%. The financial discrepancy (delta) stands at ${formatPaisa(c.delta_paisa)}.`
+      content: `A ${c.severity || 'MEDIUM'}-severity exception of type "${friendlyName}" (code: ${c.exception_code || 'N/A'}) was automatically detected by the reconciliation engine. The system flagged case ${c.case_id || 'N/A'} with a confidence score of ${confScore}%. The financial discrepancy (delta) stands at ${formatPaisa(delta)}.`
     })
 
     // 2. Timeline
     const timelineEvents: string[] = []
     if (e.payments?.length) {
       e.payments.forEach((p: any) => {
-        timelineEvents.push(`Payment ${p.payment_id} of ${formatPaisa(p.amount_paisa)} was captured on ${formatDateTime(p.captured_at)} via ${p.payment_method} from customer ${p.customer_id} (bank: ${p.bank_code}).`)
+        timelineEvents.push(`Payment ${p.payment_id || '—'} of ${formatPaisa(p.amount_paisa)} was captured on ${formatDateTime(p.captured_at)} via ${p.payment_method || 'N/A'} from customer ${p.customer_id || '—'} (bank: ${p.bank_code || '—'}).`)
       })
     }
     if (e.settlement) {
-      timelineEvents.push(`Settlement ${e.settlement.settlement_id} was processed on ${formatDateTime(e.settlement.settled_at)} for a gross amount of ${formatPaisa(e.settlement.gross_paisa)}. After deducting fees of ${formatPaisa(e.settlement.fee_paisa)} and tax of ${formatPaisa(e.settlement.tax_paisa)}, the net settlement was ${formatPaisa(e.settlement.net_paisa)}.`)
+      timelineEvents.push(`Settlement ${e.settlement.settlement_id || '—'} was processed on ${formatDateTime(e.settlement.settled_at)} for a gross amount of ${formatPaisa(e.settlement.gross_paisa)}. After deducting fees of ${formatPaisa(e.settlement.fee_paisa)} and tax of ${formatPaisa(e.settlement.tax_paisa)}, the net settlement was ${formatPaisa(e.settlement.net_paisa)}.`)
     }
     if (e.bank_entry) {
-      timelineEvents.push(`Bank statement shows a credit of ${formatPaisa(e.bank_entry.amount_paisa)} on ${e.bank_entry.value_date} against UTR ${e.bank_entry.utr} (Bank Ref: ${e.bank_entry.bank_reference}).`)
+      timelineEvents.push(`Bank statement shows a credit of ${formatPaisa(e.bank_entry.amount_paisa)} on ${e.bank_entry.value_date || '—'} against UTR ${e.bank_entry.utr || '—'} (Bank Ref: ${e.bank_entry.bank_reference || '—'}).`)
     }
     if (e.adjustments?.length) {
       e.adjustments.forEach((a: any) => {
-        timelineEvents.push(`A ${a.type} adjustment of ${formatPaisa(a.amount_paisa)} was applied: "${a.reason}".`)
+        timelineEvents.push(`A ${a.type || 'ADJUSTMENT'} adjustment of ${formatPaisa(a.amount_paisa)} was applied: "${a.reason || 'No reason'}".`)
       })
     }
-    timelineEvents.push(`Exception case ${c.case_id} was opened on ${formatDateTime(c.opened_at)} and is currently ${c.status}.`)
+    timelineEvents.push(`Exception case ${c.case_id || 'N/A'} was opened on ${formatDateTime(c.opened_at)} and is currently ${c.status || 'OPEN'}.`)
     if (c.resolved_at) {
-      timelineEvents.push(`The case was resolved on ${formatDateTime(c.resolved_at)} by ${c.resolved_by} with action: ${c.status}.`)
+      timelineEvents.push(`The case was resolved on ${formatDateTime(c.resolved_at)} by ${c.resolved_by || 'Unknown'} with action: ${c.status || 'RESOLVED'}.`)
     }
     sections.push({ title: 'Chronological Timeline', content: timelineEvents.join('\n\n') })
 
     // 3. Evidence Analysis
     const analysis: string[] = []
     if (c.exception_code === 'DUPLICATE_UTR') {
-      analysis.push(`The UTR ${c.utr} appears in multiple bank statement entries. This is a critical red flag as each UTR should correspond to exactly one unique bank credit. The presence of duplicates indicates either a bank-side processing error resulting in a double credit, or a potential data integrity issue in the bank statement feed.`)
+      analysis.push(`The UTR ${c.utr || '—'} appears in multiple bank statement entries. This is a critical red flag as each UTR should correspond to exactly one unique bank credit. The presence of duplicates indicates either a bank-side processing error resulting in a double credit, or a potential data integrity issue in the bank statement feed.`)
       if (e.bank_entry) {
-        analysis.push(`The bank entry on record shows a credit of ${formatPaisa(e.bank_entry.amount_paisa)} on ${e.bank_entry.value_date}. If this UTR was credited more than once, the merchant may have received excess funds totaling ${formatPaisa(e.bank_entry.amount_paisa * 2)}, creating a liability risk.`)
+        analysis.push(`The bank entry on record shows a credit of ${formatPaisa(e.bank_entry.amount_paisa)} on ${e.bank_entry.value_date || '—'}. If this UTR was credited more than once, the merchant may have received excess funds totaling ${formatPaisa((e.bank_entry.amount_paisa ?? 0) * 2)}, creating a liability risk.`)
       }
     } else if (c.exception_code === 'AMOUNT_MISMATCH' || c.exception_code === 'BANK_SETTLEMENT_MISMATCH') {
-      analysis.push(`The system detected a discrepancy of ${formatPaisa(c.delta_paisa)} between the expected settlement amount (${formatPaisa(c.expected_paisa)}) and the actual bank credit (${formatPaisa(c.actual_paisa)}).`)
+      analysis.push(`The system detected a discrepancy of ${formatPaisa(delta)} between the expected settlement amount (${formatPaisa(c.expected_paisa)}) and the actual bank credit (${formatPaisa(c.actual_paisa)}).`)
       if (e.settlement && e.bank_entry) {
-        const diff = e.bank_entry.amount_paisa - e.settlement.net_paisa
+        const diff = (e.bank_entry.amount_paisa ?? 0) - (e.settlement.net_paisa ?? 0)
         analysis.push(`The settlement file reports a net of ${formatPaisa(e.settlement.net_paisa)}, but the bank credited ${formatPaisa(e.bank_entry.amount_paisa)}. The variance of ${formatPaisa(diff)} could be caused by rounding differences, unaccounted adjustments, or an error in the fee calculation by the payment gateway.`)
       }
     } else if (c.exception_code === 'FEE_DEVIATION') {
-      analysis.push(`The gateway-reported fees deviate from the expected fee schedule. The expected net was ${formatPaisa(c.expected_paisa)} but the actual net is ${formatPaisa(c.actual_paisa)}, creating a shortfall of ${formatPaisa(Math.abs(c.delta_paisa))}.`)
+      analysis.push(`The gateway-reported fees deviate from the expected fee schedule. The expected net was ${formatPaisa(c.expected_paisa)} but the actual net is ${formatPaisa(c.actual_paisa)}, creating a shortfall of ${formatPaisa(Math.abs(delta))}.`)
       if (e.settlement) {
-        analysis.push(`Settlement ${e.settlement.settlement_id} reports fee of ${formatPaisa(e.settlement.fee_paisa)} and tax of ${formatPaisa(e.settlement.tax_paisa)} on a gross of ${formatPaisa(e.settlement.gross_paisa)}. The effective fee rate is ${((e.settlement.fee_paisa / e.settlement.gross_paisa) * 100).toFixed(3)}%.`)
+        const feeRateStr = (e.settlement.gross_paisa && e.settlement.gross_paisa !== 0)
+          ? `${(((e.settlement.fee_paisa ?? 0) / e.settlement.gross_paisa) * 100).toFixed(3)}%`
+          : 'N/A'
+        analysis.push(`Settlement ${e.settlement.settlement_id || '—'} reports fee of ${formatPaisa(e.settlement.fee_paisa)} and tax of ${formatPaisa(e.settlement.tax_paisa)} on a gross of ${formatPaisa(e.settlement.gross_paisa)}. The effective fee rate is ${feeRateStr}.`)
       }
     } else {
-      analysis.push(`The reconciliation engine identified a ${friendlyName} exception. Expected amount: ${formatPaisa(c.expected_paisa)}, actual amount: ${formatPaisa(c.actual_paisa)}, resulting in a delta of ${formatPaisa(c.delta_paisa)}.`)
+      analysis.push(`The reconciliation engine identified a ${friendlyName} exception. Expected amount: ${formatPaisa(c.expected_paisa)}, actual amount: ${formatPaisa(c.actual_paisa)}, resulting in a delta of ${formatPaisa(delta)}.`)
     }
     if (e.adjustments?.length) {
-      const totalAdj = e.adjustments.reduce((sum: number, a: any) => sum + a.amount_paisa, 0)
-      analysis.push(`${e.adjustments.length} adjustment(s) totaling ${formatPaisa(totalAdj)} were applied to this settlement. These include: ${e.adjustments.map((a: any) => `${a.type} (${formatPaisa(a.amount_paisa)} - ${a.reason})`).join('; ')}. These deductions have been factored into the expected net calculation.`)
+      const totalAdj = e.adjustments.reduce((sum: number, a: any) => sum + (a.amount_paisa ?? 0), 0)
+      analysis.push(`${e.adjustments.length} adjustment(s) totaling ${formatPaisa(totalAdj)} were applied to this settlement. These include: ${e.adjustments.map((a: any) => `${a.type || 'ADJUSTMENT'} (${formatPaisa(a.amount_paisa)} - ${a.reason || 'N/A'})`).join('; ')}. These deductions have been factored into the expected net calculation.`)
     }
     sections.push({ title: 'Evidence Analysis', content: analysis.join('\n\n') })
 
     // 4. Risk Assessment
     const risks: string[] = []
     if (c.severity === 'CRITICAL') {
-      risks.push(`This is classified as CRITICAL severity. The financial exposure of ${formatPaisa(Math.abs(c.delta_paisa))} exceeds the threshold for automatic escalation. Immediate review by the admin team is required before settlement reconciliation can proceed.`)
+      risks.push(`This is classified as CRITICAL severity. The financial exposure of ${formatPaisa(Math.abs(delta))} exceeds the threshold for automatic escalation. Immediate review by the admin team is required before settlement reconciliation can proceed.`)
     } else if (c.severity === 'HIGH') {
-      risks.push(`This HIGH-severity exception represents a financial exposure of ${formatPaisa(Math.abs(c.delta_paisa))}. While not critical, it requires prompt attention to prevent accumulation of unreconciled balances.`)
+      risks.push(`This HIGH-severity exception represents a financial exposure of ${formatPaisa(Math.abs(delta))}. While not critical, it requires prompt attention to prevent accumulation of unreconciled balances.`)
     } else {
-      risks.push(`This MEDIUM-severity exception has a financial impact of ${formatPaisa(Math.abs(c.delta_paisa))}. It should be reviewed in the normal workflow cycle.`)
+      risks.push(`This ${(c.severity || 'MEDIUM')}-severity exception has a financial impact of ${formatPaisa(Math.abs(delta))}. It should be reviewed in the normal workflow cycle.`)
     }
-    risks.push(`The rule engine confidence score of ${(c.confidence_score * 100).toFixed(1)}% indicates ${c.confidence_score >= 0.9 ? 'very high certainty' : c.confidence_score >= 0.7 ? 'strong confidence' : 'moderate confidence'} in this classification. ${c.confidence_score < 0.7 ? 'Manual verification of the underlying data is strongly recommended.' : ''}`)
+    const confVal = c.confidence_score ?? 0
+    risks.push(`The rule engine confidence score of ${(confVal * 100).toFixed(1)}% indicates ${confVal >= 0.9 ? 'very high certainty' : confVal >= 0.7 ? 'strong confidence' : 'moderate confidence'} in this classification. ${confVal < 0.7 ? 'Manual verification of the underlying data is strongly recommended.' : ''}`)
     sections.push({ title: 'Risk Assessment', content: risks.join('\n\n') })
 
     // 5. Recommended Action
     sections.push({
       title: 'Recommended Action',
-      content: c.suggested_action
+      content: c.suggested_action || 'No recommended action provided.'
     })
 
     return sections
@@ -340,7 +346,7 @@ export default function ExceptionDetail() {
               {caseData?.status}
             </Badge>
           </h2>
-          <p className="font-mono text-sm text-slate-500 tracking-tight">Case Identifier: <span className="text-slate-800 font-bold bg-white px-2 py-0.5 rounded border border-slate-200 shadow-sm ml-1">{caseData?.case_id?.split('_').pop()}</span></p>
+          <p className="font-mono text-sm text-slate-500 tracking-tight">Case Identifier: <span className="text-slate-800 font-bold bg-white px-2 py-0.5 rounded border border-slate-200 shadow-sm ml-1">{caseData?.case_id ? (caseData.case_id.includes('_') ? caseData.case_id.split('_').pop() : caseData.case_id) : '—'}</span></p>
         </div>
         <div className="flex items-center gap-2">
           <Button 
@@ -402,7 +408,7 @@ export default function ExceptionDetail() {
             >
                <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent pointer-events-none" />
               <p className="relative z-10 text-sm leading-relaxed text-slate-700 font-medium line-clamp-2">
-                {caseData.explanation}
+                {caseData?.explanation || 'No hypothesis narrative available for this exception.'}
               </p>
               <div className="relative z-10 mt-3 flex items-center gap-1.5 text-[10px] font-bold text-blue-600 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
                 <Maximize2 className="h-3 w-3" /> View Detailed Hypothesis
@@ -549,7 +555,7 @@ export default function ExceptionDetail() {
                 </div>
                 <div className="flex justify-between items-center p-5 bg-slate-50/80 backdrop-blur-md border-t border-slate-200/60">
                   <span className="text-slate-800 font-bold tracking-widest uppercase text-xs">Discrepancy (Delta)</span>
-                  <span className={`text-base font-extrabold tracking-tight ${caseData.delta_paisa !== 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                  <span className={`text-base font-extrabold tracking-tight ${(caseData.delta_paisa ?? 0) !== 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                     {formatPaisa(caseData.delta_paisa)}
                   </span>
                 </div>
@@ -562,19 +568,19 @@ export default function ExceptionDetail() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 bg-white/60 backdrop-blur-sm border border-slate-200/60 rounded-xl shadow-sm">
                 <p className="text-xs text-slate-500 font-medium mb-1">Settlement ID</p>
-                <p className="font-mono text-sm text-slate-800 font-semibold break-all">{caseData.settlement_id || 'N/A'}</p>
+                <p className="font-mono text-sm text-slate-800 font-semibold break-all">{caseData.settlement_id || '—'}</p>
               </div>
               <div className="p-4 bg-white/60 backdrop-blur-sm border border-slate-200/60 rounded-xl shadow-sm">
                 <p className="text-xs text-slate-500 font-medium mb-1">UTR</p>
-                <p className="font-mono text-sm text-slate-800 font-semibold break-all">{caseData.utr || 'N/A'}</p>
+                <p className="font-mono text-sm text-slate-800 font-semibold break-all">{caseData.utr || '—'}</p>
               </div>
               <div className="p-4 bg-white/60 backdrop-blur-sm border border-slate-200/60 rounded-xl shadow-sm">
                 <p className="text-xs text-slate-500 font-medium mb-1">Payment ID</p>
-                <p className="font-mono text-sm text-slate-800 font-semibold break-all">{caseData.payment_id || 'N/A'}</p>
+                <p className="font-mono text-sm text-slate-800 font-semibold break-all">{caseData.payment_id || '—'}</p>
               </div>
               <div className="p-4 bg-white/60 backdrop-blur-sm border border-slate-200/60 rounded-xl shadow-sm">
                 <p className="text-xs text-slate-500 font-medium mb-1">Exception Code</p>
-                <p className="font-mono text-sm text-red-600 font-bold break-all">{caseData.exception_code}</p>
+                <p className="font-mono text-sm text-red-600 font-bold break-all">{caseData.exception_code || '—'}</p>
               </div>
             </div>
           </section>
@@ -591,7 +597,7 @@ export default function ExceptionDetail() {
                   <CardDescription className="mt-3 flex flex-col gap-2 items-start">
                     <span className="text-sm text-slate-600 font-medium">System Suggestion:</span>
                     <strong className="text-slate-800 font-mono bg-white border border-slate-200 p-2.5 rounded-lg shadow-sm text-xs leading-relaxed inline-block break-words max-w-full w-full">
-                      {caseData.suggested_action}
+                      {caseData.suggested_action || 'No recommendation available.'}
                     </strong>
                   </CardDescription>
                 </CardHeader>
@@ -601,13 +607,13 @@ export default function ExceptionDetail() {
                     <div className="flex items-start gap-3 p-4 bg-white/60 rounded-xl border border-slate-200/60 shadow-sm">
                       <ShieldCheck className="h-5 w-5 text-emerald-500 mt-0.5" />
                       <div>
-                        <p className="text-sm font-bold text-slate-800">Resolved by {caseData.resolved_by}</p>
-                        <p className="text-xs text-slate-500 mb-3 font-mono font-medium">{caseData.resolved_at ? formatDateTime(caseData.resolved_at) : 'N/A'}</p>
+                        <p className="text-sm font-bold text-slate-800">Resolved by {caseData.resolved_by || 'Unknown'}</p>
+                        <p className="text-xs text-slate-500 mb-3 font-mono font-medium">{caseData.resolved_at ? formatDateTime(caseData.resolved_at) : '—'}</p>
                         <div className="text-sm text-slate-700 mb-3 font-medium flex items-center">
                           Action taken: <Badge variant="secondary" className="shadow-none bg-slate-100 border-slate-200 text-slate-700 ml-2 font-bold">{caseData.status}</Badge>
                         </div>
                         <p className="text-[10px] font-mono text-slate-400 font-bold pt-3 border-t border-slate-200/60 uppercase tracking-widest">
-                          Audit Block Index: #{caseData.audit_block_id}
+                          Audit Block Index: #{caseData.audit_block_id ?? 'N/A'}
                         </p>
                       </div>
                     </div>
@@ -642,9 +648,9 @@ export default function ExceptionDetail() {
                       >
                         {reviewer?.role === 'ADMIN' 
                           ? 'Approve Match' 
-                          : caseData.status === 'PENDING_CO_REVIEW' 
+                          : caseData?.status === 'PENDING_CO_REVIEW' 
                             ? 'Approve Match' 
-                            : caseData.severity === 'CRITICAL' 
+                            : caseData?.severity === 'CRITICAL' 
                               ? 'Propose Approval' 
                               : 'Approve Match (Force)'}
                       </Button>
@@ -656,13 +662,13 @@ export default function ExceptionDetail() {
                       >
                         {reviewer?.role === 'ADMIN' 
                           ? 'Reject Match' 
-                          : caseData.status === 'PENDING_CO_REVIEW' 
+                          : caseData?.status === 'PENDING_CO_REVIEW' 
                             ? 'Reject Match' 
-                            : caseData.severity === 'CRITICAL' 
+                            : caseData?.severity === 'CRITICAL' 
                               ? 'Propose Rejection' 
                               : 'Reject'}
                       </Button>
-                      {reviewer?.role !== 'ADMIN' && caseData.severity === 'CRITICAL' && caseData.status === 'OPEN' && (
+                      {reviewer?.role !== 'ADMIN' && caseData?.severity === 'CRITICAL' && caseData?.status === 'OPEN' && (
                         <Button 
                           variant="secondary" 
                           className="w-full shadow-sm font-bold bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg h-11"
@@ -710,7 +716,7 @@ export default function ExceptionDetail() {
               </Button>
             </div>
             <div className="p-6 md:p-8 overflow-y-auto space-y-5">
-              {caseData.explanation.split('. ').map((para: string, idx: number) => {
+              {(caseData?.explanation || 'No detailed hypothesis narrative available.').split('. ').map((para: string, idx: number) => {
                 const text = para.trim()
                 if (!text) return null
                 return (
@@ -751,7 +757,7 @@ export default function ExceptionDetail() {
                     <h4 className="text-xs font-bold text-slate-800 uppercase tracking-widest">{section.title}</h4>
                   </div>
                   <div className="pl-9 space-y-3">
-                    {section.content.split('\n\n').map((para, pIdx) => (
+                    {(section.content || '').split('\n\n').map((para, pIdx) => (
                       <p key={pIdx} className="text-sm leading-relaxed text-slate-600 font-medium">
                         {para}
                       </p>

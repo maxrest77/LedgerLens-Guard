@@ -154,8 +154,8 @@ export default function RiskCenter() {
     }
 
     return list.map((b) => {
-      const parts = b.date.split('-')
-      const formattedDate = parts.length === 3 ? `${parseInt(parts[1], 10)}/${parseInt(parts[2], 10)}` : b.date
+      const parts = (b.date || '').split('-')
+      const formattedDate = parts.length === 3 ? `${parseInt(parts[1], 10)}/${parseInt(parts[2], 10)}` : (b.date || '—')
 
       const relevantCount = timelineSignalFilter === 'ALL'
         ? b.total_events
@@ -559,8 +559,8 @@ export default function RiskCenter() {
                 {data?.correlation_matrix?.map((row, rIdx) => (
                   <div key={rIdx} className="grid grid-cols-5 gap-1.5 mb-1.5 items-center">
                     {/* Row Header */}
-                    <div className="text-[11px] font-semibold text-slate-700 truncate pr-1" title={row.label}>
-                      {row.label.split(' ')[0]}
+                    <div className="text-[11px] font-semibold text-slate-700 truncate pr-1" title={row.label || ''}>
+                      {(row.label || '').split(' ')[0] || '—'}
                     </div>
 
                     {/* Matrix Cells */}
